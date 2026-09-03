@@ -2,7 +2,7 @@
 
 > 依据《ZIOT Console 接入文档》（HTML 版）与后端 `docs/api/app-api.md` **v0.2**（2026-09-03）整理，面向 smart-home-app（uni-app + Vue 3）。
 > 覆盖：统一包络与错误码、注册/登录/令牌管理、扫码绑定、设备列表/状态、**SSE 实时事件流**、控制设备（投递语义）、别名/解绑。
-> 原 v0.1 缺口 #1–#10a 已全部闭环；2026-09-03 第二轮审查新增 #11–#16（#11 硬编码方案已定案，#12 待查 app-api.md，其余已补默认约定），见 §9。
+> 原 v0.1 缺口 #1–#10a 与第二轮 #12（命令对象字段）已全部闭环；#11 已定硬编码方案，其余小项已补默认约定，见 §9。
 
 ---
 
@@ -240,7 +240,7 @@ curl -N {BASE_URL}/api/v1/app/events/stream -H "Authorization: Bearer $ACCESS_TO
   | 微信小程序 | 需 `wx.request({enableChunked:true})` + `onChunkReceived`（基础库 ≥2.20.1），且 `uni.request` 不透传该参数，需条件编译直调 `wx.request` | ❌ **v0.1 降级纯轮询**（列表 onShow + 详情 3–5s），后续版本再评估 chunked 方案 |
 
 - **推荐策略**：支持 SSE 的平台前台实时刷新 + 轮询兜底（详情页 3–5s、`onHide` 停）；列表页 `onShow` 拉取 + 下拉刷新即可；不支持的平台纯轮询。
-- 属性 `identifier` 由各产品固件定义（如 temperature/humidity/power），APP 需按产品做属性映射表（硬编码方案见 §6.5）。
+- 属性 `identifier` 由各产品固件定义（如 temperature/humidity/power），APP 需按产品做属性映射表（硬编码方案见 §6.6）。
 
 ---
 
@@ -267,7 +267,56 @@ curl -s -X POST {BASE_URL}/api/v1/app/devices/{deviceId}/commands:sync \
 curl -s {BASE_URL}/api/v1/app/commands/{commandId} -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
-### 6.2 参数说明
+### 6.2 命令对象（Command）字段 ✅ 已回填
+
+`commands` / `commands:sync` 的响应 `data`、命令详情的响应 `data` 均为同一结构（18 个字段）：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | string | 命令 ID（**字段名就是 `id`**，不是 command_id） |
+| `org_id` | string | 组织 ID |
+| `device_id` | string | 目标设备 ID |
+| `device_name` | string | 设备名称 |
+| `product_key` | string | 产品标识 |
+| `device_key` | string | 设备标识 |
+| `identifier` | string | `property.set`（属性设置）或服务标识（服务调用）。**请求里的 `kind` 不回显**，靠它区分 |
+| `params` | unknown | 请求参数**原样回显** |
+| `status` | string | `pending` / `success` / `failed`（存量历史可能出现 `sent` / `timeout`） |
+| `request_id` | string | MQTT 报文关联 ID，与 `id` 同值 |
+| `result` | unknown \| null | 设备应答透传数据；投递语义下通常为 `null` |
+| `error_code` | string \| null | 失败错误码（如 `publish_failed`） |
+| `error_message` | string \| null | 失败原因，UI 失败提示可直接用 |
+| `timeout_at` | string (ISO 8601) | 兼容保留的超时时刻，不再影响结果 |
+| `sent_at` | string \| null | 发布到 Broker 的时间 |
+| `replied_at` | string \| null | 收到设备可选应答的时间（通常 `null`） |
+| `created_at` | string (ISO 8601) | 创建时间 |
+| `updated_at` | string (ISO 8601) | 状态最后更新时间 |
+
+```ts
+// TypeScript 参考
+interface AppCommand {
+  id: string;
+  org_id: string;
+  device_id: string;
+  device_name: string;
+  product_key: string;
+  device_key: string;
+  identifier: string;          // "property.set" 或服务标识
+  params: unknown;
+  status: "pending" | "success" | "failed" | string;  // 存量含 sent/timeout
+  request_id: string;
+  result: unknown;
+  error_code: string | null;
+  error_message: string | null;
+  timeout_at: string;
+  sent_at: string | null;
+  replied_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+```
+
+### 6.3 参数说明
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -276,7 +325,7 @@ curl -s {BASE_URL}/api/v1/app/commands/{commandId} -H "Authorization: Bearer $AC
 | params | object | 参数，必须是 JSON 对象；取值由产品固件定义，需与设备侧约定对齐 |
 | timeout_ms | number | **兼容保留字段，不再影响结果**（新命令创建即终态）；可不传 |
 
-### 6.3 命令状态机（⚠️ v0.1 文档已过期，以此为准）
+### 6.4 命令状态机（⚠️ v0.1 文档已过期，以此为准）
 
 ```
 pending → success / failed
@@ -287,13 +336,13 @@ pending → success / failed
 - 存量历史命令可能出现 `sent` / `timeout`（旧版等待应答的语义），UI 兜底展示即可。
 - **确认设备真实执行**：看 SSE `device.shadow.updated` 推送或轮询 shadow `reported` 是否收敛到设置值。
 
-### 6.4 APP 端实现要点
+### 6.5 APP 端实现要点
 
 - 控制按钮置 loading；接口几十毫秒返回投递结果——`success` 只代表「已送达 Broker」，UI 提示建议用「已发送」而非「已执行」。
 - 控制后**以 shadow/SSE 回读值为准**刷新 UI，不要直接改本地状态（设备可能拒绝或修正参数）。
 - `identifier` 与 `params` 的合法取值由产品固件定义，APP 端需按产品维护控制项配置。
 
-### 6.5 产品面板硬编码方案（缺口 #11 已定案）
+### 6.6 产品面板硬编码方案（缺口 #11 已定案）
 
 后端无产品物模型/元数据接口（设备对象仅 `product_id/product_name/product_key`），**决策：控制面板配置由前端硬编码维护**，按 `product_key` 索引：
 
@@ -402,7 +451,7 @@ Broker: www.ziot.asia:1883 / 8883(TLS)
 
 ## 9. 资料缺口清单（2026-09-03 第二轮更新）
 
-**结论：v0.1 的 #1–#10a 已全部由 `docs/api/app-api.md` v0.2 补齐并回填本文；第二轮审查新增 #11–#16，其中 #11 已定方案（硬编码），#12 待查 app-api.md，其余小项已补默认约定。**
+**结论：v0.1 的 #1–#10a 与第二轮 #12（命令对象字段，已回填 §6.2）均闭环；#11 已定硬编码方案（§6.6），其余小项已补默认约定。**
 
 ### 第一轮缺口（已全部闭环）
 
@@ -413,7 +462,7 @@ Broker: www.ziot.asia:1883 / 8883(TLS)
 | ~~3~~ | ~~刷新令牌请求体~~ | ✅ `{"refresh_token"}` |
 | ~~4~~ | ~~统一响应包络与错误码表~~ | ✅ 见 §2 |
 | ~~5~~ | ~~设备列表/绑定响应字段结构~~ | ✅ 见 §4.3 设备对象 |
-| ~~6~~ | ~~commands:sync 响应字段与终态判定~~ | ✅ 投递语义，见 §6.3 |
+| ~~6~~ | ~~commands:sync 响应字段与终态判定~~ | ✅ 命令对象 18 字段见 §6.2；投递语义与状态机见 §6.4 |
 | ~~7~~ | ~~user 对象字段~~ | ✅ `{id, phone, nickname, status, created_at}` |
 | ~~8~~ | ~~实时推送通道~~ | ✅ SSE 已上线，见 §5.3 |
 | ~~9~~ | ~~解绑接口~~ | ✅ `DELETE /api/v1/app/devices/{id}`，见 §7 |
@@ -427,8 +476,8 @@ Broker: www.ziot.asia:1883 / 8883(TLS)
 | 10c | 消息推送（后台/离线通知） | 消息中心 | 🟡 未提供（SSE 仅前台长连接；前台实时展示已覆盖） |
 | 10d | App 端查看设备绑定码 | 设备设置页「分享给家人」 | 🟢 未提供（绑定码查看/轮换是控制台接口；家人扫码用机身印刷的码即可） |
 | 10e | 设备列表分页 | 设备很多时 | 🟢 当前全量返回，量级大时需后端加 |
-| **11** | **产品物模型/元数据无接口**：设备对象无分类/图标/属性清单，APP 无法动态得知可控属性 | 控制面板渲染机制 | ✅ **已定方案：前端硬编码**（见 §6.5），按 `product_key` 维护面板配置，新品上线需发版 |
-| **12** | **命令对象字段结构**：`commands:sync` 响应与 `GET /app/commands/{id}` 的完整字段（id 字段名、created_at、params 回显等） | 命令详情页/调试 | 🟡 **待查 `app-api.md` 回填 §6** |
+| **11** | **产品物模型/元数据无接口**：设备对象无分类/图标/属性清单，APP 无法动态得知可控属性 | 控制面板渲染机制 | ✅ **已定方案：前端硬编码**（见 §6.6），按 `product_key` 维护面板配置，新品上线需发版 |
+| **12** | **命令对象字段结构**：`commands:sync` 响应与 `GET /app/commands/{id}` 的完整字段（id 字段名、created_at、params 回显等） | 命令详情页/调试 | ✅ **已回填 §6.2（18 字段，id 字段名就是 `id`；`kind` 不回显靠 `identifier` 区分，`property_set` 回显为 `property.set`）** |
 | **13** | H5 端 CORS：若 H5 部署域名 ≠ ziot.asia，API 需放行跨域 | H5 平台 | 🟡 待后端确认 Access-Control-Allow-Origin 策略 |
 | **14** | 小程序 SSE 实现约束：需 `wx.request({enableChunked:true})` + `onChunkReceived`（基础库 ≥2.20.1），`uni.request` 不一定透传该参数 | 小程序实时性 | ✅ 已定约定（见 §5.3 平台策略表）：小程序降级纯轮询，v0.1 不做 chunked |
 | **15** | 绑定码格式规范（长度/字符集）未明确定义 | 手动输码前置校验 | 🟢 按示例采用 20 位大写字母+数字，前端只做大写转换 + 非空校验，精确格式由后端 400001 兜底 |
@@ -439,7 +488,7 @@ Broker: www.ziot.asia:1883 / 8883(TLS)
 1. ~~拿字段级文档补齐~~ ✅ 已完成。
 2. ~~确认生产 API 域名~~ ✅ 已确认；小程序发布前配置微信后台合法域名。
 3. ~~确认推送通道~~ ✅ SSE 已上线；离线推送（厂商通道）按需再向后端提。
-4. **#12**：查 `app-api.md` 命令对象定义 → 回填 §6.1。
+4. ~~**#12**：查 `app-api.md` 命令对象定义~~ ✅ 已回填 §6.2。
 5. **#13**：后端确认 CORS 策略（H5 部署域名定下来后一并问）。
 
 ---
@@ -453,7 +502,7 @@ src/
 │   ├── auth.ts           # register / login / refresh / change-password / logout / me
 │   ├── device.ts         # bind / list / alias(PATCH) / unbind(DELETE) / shadow / commands(:sync) / command detail
 │   └── sse.ts            # SSE 长连接：fetch 流式解析 event:/data: 帧，断线重连后先拉列表+shadow 对齐
-├── config/product-panels/  # 产品面板注册表（硬编码方案，见 §6.5）：index.ts + 每产品一份配置
+├── config/product-panels/  # 产品面板注册表（硬编码方案，见 §6.6）：index.ts + 每产品一份配置
 ├── stores/auth.ts        # 令牌持久化（uni.setStorageSync，原子替换）
 ├── utils/qrcode.ts       # 扫码结果解析绑定码（#fragment，自动大写）
 ├── composables/useDeviceEvents.ts  # 订阅 SSE，按 device_id 分发到页面（首页/详情页共用一条连接）
@@ -464,4 +513,4 @@ src/
     └── bind-device/      # 扫码（uni.scanCode）/ 手动输码
 ```
 
-关键实现细节均已在 §3.4、§4.2、§5.3、§6.4、§6.5、§7 标注。
+关键实现细节均已在 §3.4、§4.2、§5.3、§6.2、§6.4、§6.6、§7 标注。
