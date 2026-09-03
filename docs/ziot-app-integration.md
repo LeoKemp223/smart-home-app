@@ -2,7 +2,7 @@
 
 > 依据《ZIOT Console 接入文档》（HTML 版）与后端 `docs/api/app-api.md` **v0.2**（2026-09-03）整理，面向 smart-home-app（uni-app + Vue 3）。
 > 覆盖：统一包络与错误码、注册/登录/令牌管理、扫码绑定、设备列表/状态、**SSE 实时事件流**、控制设备（投递语义）、别名/解绑。
-> 原 v0.1 的资料缺口清单 #2–#9 已全部由后端文档补齐并回填到本文；仍存缺口见 §7。
+> 原 v0.1 缺口 #1–#10a 已全部闭环；2026-09-03 第二轮审查新增 #11–#16（#11 硬编码方案已定案，#12 待查 app-api.md，其余已补默认约定），见 §9。
 
 ---
 
@@ -227,9 +227,20 @@ curl -N {BASE_URL}/api/v1/app/events/stream -H "Authorization: Bearer $ACCESS_TO
 
 实现要点（uni-app）：
 - **无历史重放**：断线重连后先拉一次设备列表 + shadow 对齐，再继续收流。
-- H5 原生 `EventSource` **不能带 Authorization 头**，需用 fetch 流式读取（ReadableStream + TextDecoder 解析 `event:`/`data:` 帧）或支持自定义 header 的库；App/小程序端同理用 request 分块回传或插件实现。
-- **推荐策略**：前台 SSE 实时刷新 + 轮询兜底（详情页 3–5s、`onHide` 停）；列表页 `onShow` 拉取 + 下拉刷新即可。
-- 属性 `identifier` 由各产品固件定义（如 temperature/humidity/power），APP 需按产品做属性映射表。
+- **断线判定与重连策略**（服务端心跳 20s，据此推导）：
+  - 判死阈值：**≥60s 未收到任何事件**（含 heartbeat，即连续漏掉 2 个心跳）→ 视为断线，主动断开重连；
+  - 重连退避：指数退避 1s → 2s → 4s → 8s → … **封顶 60s**，重连成功后退避归零；
+  - 每次重连成功后：先拉设备列表（对齐绑定集）+ 当前页所需 shadow，再恢复事件分发。
+- **平台实现策略**（原缺口 #14，已定约定）：
+
+  | 平台 | SSE 实现 | v0.1 决策 |
+  |---|---|---|
+  | H5 | 原生 `EventSource` 不能带 Authorization 头 → 用 **fetch 流式读取**（ReadableStream + TextDecoder 解析 `event:`/`data:` 帧） | ✅ 做 SSE |
+  | App（Android/iOS） | 依赖原生插件或 fetch 分块；uni-app App 端 fetch 支持度有限 | ⚠️ 优先尝试，不行降级轮询 |
+  | 微信小程序 | 需 `wx.request({enableChunked:true})` + `onChunkReceived`（基础库 ≥2.20.1），且 `uni.request` 不透传该参数，需条件编译直调 `wx.request` | ❌ **v0.1 降级纯轮询**（列表 onShow + 详情 3–5s），后续版本再评估 chunked 方案 |
+
+- **推荐策略**：支持 SSE 的平台前台实时刷新 + 轮询兜底（详情页 3–5s、`onHide` 停）；列表页 `onShow` 拉取 + 下拉刷新即可；不支持的平台纯轮询。
+- 属性 `identifier` 由各产品固件定义（如 temperature/humidity/power），APP 需按产品做属性映射表（硬编码方案见 §6.5）。
 
 ---
 
@@ -281,6 +292,24 @@ pending → success / failed
 - 控制按钮置 loading；接口几十毫秒返回投递结果——`success` 只代表「已送达 Broker」，UI 提示建议用「已发送」而非「已执行」。
 - 控制后**以 shadow/SSE 回读值为准**刷新 UI，不要直接改本地状态（设备可能拒绝或修正参数）。
 - `identifier` 与 `params` 的合法取值由产品固件定义，APP 端需按产品维护控制项配置。
+
+### 6.5 产品面板硬编码方案（缺口 #11 已定案）
+
+后端无产品物模型/元数据接口（设备对象仅 `product_id/product_name/product_key`），**决策：控制面板配置由前端硬编码维护**，按 `product_key` 索引：
+
+```
+src/config/product-panels/
+├── index.ts              # 注册表：Map<product_key, ProductPanel> + 默认兜底面板
+└── pk-thermometer.ts     # 每个产品一份配置（identifier 对齐固件物模型）
+```
+
+约定：
+1. **索引键**：`product_key`（如 `pk_demo`），比 product_id 稳定且人类可读；
+2. **兜底面板**：注册表查不到的产品渲染只读属性列表（shadow 全部键值）+ 通用「重启」动作，**不白屏**；
+3. **发版纪律**：新品上线 = 前端加一份配置 + 发版；配置文件头部注释标明对应固件版本；
+4. **升级路径**：若后端未来提供物模型接口，注册表的数据源从本地文件切换为接口拉取 + 本地缓存，页面层不用改（面板渲染只依赖 `ProductPanel` 结构）。
+
+`ProductPanel` 结构定义见 page-design.md §3.3（mainStats + controls 四类控件）。
 
 ---
 
@@ -371,32 +400,47 @@ Broker: www.ziot.asia:1883 / 8883(TLS)
 
 ---
 
-## 9. 资料缺口清单（2026-09-03 更新）
+## 9. 资料缺口清单（2026-09-03 第二轮更新）
 
-**结论：v0.1 的 #2–#9 已全部由 `docs/api/app-api.md` v0.2 补齐并回填本文。剩余缺口：**
+**结论：v0.1 的 #1–#10a 已全部由 `docs/api/app-api.md` v0.2 补齐并回填本文；第二轮审查新增 #11–#16，其中 #11 已定方案（硬编码），#12 待查 app-api.md，其余小项已补默认约定。**
+
+### 第一轮缺口（已全部闭环）
+
+| # | 缺口 | 状态 |
+|---|---|---|
+| ~~1~~ | ~~生产 Base URL~~ | ✅ 已确认 `https://www.ziot.asia` |
+| ~~2~~ | ~~登录请求体字段~~ | ✅ `{"phone","password"}` |
+| ~~3~~ | ~~刷新令牌请求体~~ | ✅ `{"refresh_token"}` |
+| ~~4~~ | ~~统一响应包络与错误码表~~ | ✅ 见 §2 |
+| ~~5~~ | ~~设备列表/绑定响应字段结构~~ | ✅ 见 §4.3 设备对象 |
+| ~~6~~ | ~~commands:sync 响应字段与终态判定~~ | ✅ 投递语义，见 §6.3 |
+| ~~7~~ | ~~user 对象字段~~ | ✅ `{id, phone, nickname, status, created_at}` |
+| ~~8~~ | ~~实时推送通道~~ | ✅ SSE 已上线，见 §5.3 |
+| ~~9~~ | ~~解绑接口~~ | ✅ `DELETE /api/v1/app/devices/{id}`，见 §7 |
+| ~~10a~~ | ~~修改密码接口~~ | ✅ `POST /app/auth/change-password`（旧密码校验 + 全量吊销刷新令牌 + 返回新会话） |
+
+### 第二轮缺口（2026-09-03 审查新增）
 
 | # | 缺口 | 影响 | 状态 |
 |---|---|---|---|
-| ~~1~~ | ~~生产 Base URL~~ | — | ✅ 已确认 `https://www.ziot.asia` |
-| ~~2~~ | ~~登录请求体字段~~ | — | ✅ `{"phone","password"}` |
-| ~~3~~ | ~~刷新令牌请求体~~ | — | ✅ `{"refresh_token"}` |
-| ~~4~~ | ~~统一响应包络与错误码表~~ | — | ✅ 见 §2 |
-| ~~5~~ | ~~设备列表/绑定响应字段结构~~ | — | ✅ 见 §4.3 设备对象 |
-| ~~6~~ | ~~commands:sync 响应字段与终态判定~~ | — | ✅ 投递语义，见 §6.3 |
-| ~~7~~ | ~~user 对象字段~~ | — | ✅ `{id, phone, nickname, status, created_at}` |
-| ~~8~~ | ~~实时推送通道~~ | — | ✅ SSE 已上线，见 §5.3 |
-| ~~9~~ | ~~解绑接口~~ | — | ✅ `DELETE /api/v1/app/devices/{id}`，见 §7 |
-| ~~10a~~ | ~~修改密码接口~~ | — | ✅ `POST /app/auth/change-password`（旧密码校验 + 全量吊销刷新令牌 + 返回新会话） |
 | 10b | 设备日志/上报记录的 App 端查询接口 | 设备详情日志页 | 🟡 未提供（控制台有「设备记录」接口但走 Cookie 会话，App 不可用） |
 | 10c | 消息推送（后台/离线通知） | 消息中心 | 🟡 未提供（SSE 仅前台长连接；前台实时展示已覆盖） |
 | 10d | App 端查看设备绑定码 | 设备设置页「分享给家人」 | 🟢 未提供（绑定码查看/轮换是控制台接口；家人扫码用机身印刷的码即可） |
 | 10e | 设备列表分页 | 设备很多时 | 🟢 当前全量返回，量级大时需后端加 |
+| **11** | **产品物模型/元数据无接口**：设备对象无分类/图标/属性清单，APP 无法动态得知可控属性 | 控制面板渲染机制 | ✅ **已定方案：前端硬编码**（见 §6.5），按 `product_key` 维护面板配置，新品上线需发版 |
+| **12** | **命令对象字段结构**：`commands:sync` 响应与 `GET /app/commands/{id}` 的完整字段（id 字段名、created_at、params 回显等） | 命令详情页/调试 | 🟡 **待查 `app-api.md` 回填 §6** |
+| **13** | H5 端 CORS：若 H5 部署域名 ≠ ziot.asia，API 需放行跨域 | H5 平台 | 🟡 待后端确认 Access-Control-Allow-Origin 策略 |
+| **14** | 小程序 SSE 实现约束：需 `wx.request({enableChunked:true})` + `onChunkReceived`（基础库 ≥2.20.1），`uni.request` 不一定透传该参数 | 小程序实时性 | ✅ 已定约定（见 §5.3 平台策略表）：小程序降级纯轮询，v0.1 不做 chunked |
+| **15** | 绑定码格式规范（长度/字符集）未明确定义 | 手动输码前置校验 | 🟢 按示例采用 20 位大写字母+数字，前端只做大写转换 + 非空校验，精确格式由后端 400001 兜底 |
+| **16** | 429 限流响应是否带 `Retry-After` 头 | 退避重试实现 | 🟢 未确认；前端按固定退避处理（同接口 30s 内不自动重试，提示用户稍后再试） |
 
 ### 后续建议
 
 1. ~~拿字段级文档补齐~~ ✅ 已完成。
 2. ~~确认生产 API 域名~~ ✅ 已确认；小程序发布前配置微信后台合法域名。
 3. ~~确认推送通道~~ ✅ SSE 已上线；离线推送（厂商通道）按需再向后端提。
+4. **#12**：查 `app-api.md` 命令对象定义 → 回填 §6.1。
+5. **#13**：后端确认 CORS 策略（H5 部署域名定下来后一并问）。
 
 ---
 
@@ -409,6 +453,7 @@ src/
 │   ├── auth.ts           # register / login / refresh / change-password / logout / me
 │   ├── device.ts         # bind / list / alias(PATCH) / unbind(DELETE) / shadow / commands(:sync) / command detail
 │   └── sse.ts            # SSE 长连接：fetch 流式解析 event:/data: 帧，断线重连后先拉列表+shadow 对齐
+├── config/product-panels/  # 产品面板注册表（硬编码方案，见 §6.5）：index.ts + 每产品一份配置
 ├── stores/auth.ts        # 令牌持久化（uni.setStorageSync，原子替换）
 ├── utils/qrcode.ts       # 扫码结果解析绑定码（#fragment，自动大写）
 ├── composables/useDeviceEvents.ts  # 订阅 SSE，按 device_id 分发到页面（首页/详情页共用一条连接）
@@ -419,4 +464,4 @@ src/
     └── bind-device/      # 扫码（uni.scanCode）/ 手动输码
 ```
 
-关键实现细节均已在 §3.4、§4.2、§5.3、§6.4、§7 标注。
+关键实现细节均已在 §3.4、§4.2、§5.3、§6.4、§6.5、§7 标注。
