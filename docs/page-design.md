@@ -20,7 +20,7 @@
 | 设备状态 | 列表快照 + shadow 全集 + **SSE 实时事件流**（属性更新/上下线推送，20s 心跳保活） | 前台 SSE 实时刷新，轮询 3–5s 仅作兜底；断线重连后先拉列表+shadow 对齐 |
 | 设备控制 | **投递语义**：`commands:sync` 几十毫秒即返回终态（success=已送达 Broker，≠设备已执行） | 控制按钮 loading 态极短；「已发送」文案；执行确认以 SSE/shadow 回读为准 |
 | 设备管理 | 改别名（PATCH alias，仅自己可见）+ 解绑（DELETE，软删除）均已支持 | 设置页重命名/解绑入口可进 P0 |
-| 无后端支持 | 房间/场景/自动化/定时/消息推送（离线通知）/家庭组管理/App 端设备日志/改密 | 相关页面只做 UI 占位或延后（见 §6 缺口） |
+| 无后端支持 | 房间/场景/自动化/定时/离线消息推送/家庭组管理/App 端设备日志 | 相关页面只做 UI 占位或延后（见 §6 缺口） |
 
 ### 1.2 通用设计原则
 
@@ -364,7 +364,7 @@ interface ProductPanel {
 | 设备日志 `pages/device/logs` | 属性/事件/日志上报的时间线列表 | **后端无 App 端日志接口**，仍缺（可先用 SSE 缓存近期事件做本地时间线） |
 | 消息中心 `pages/messages` | 设备上下线、控制失败等通知列表 | 离线推送无；前台可用 SSE 事件做应用内消息 |
 | 个人资料 `pages/mine/profile` | 昵称、手机号脱敏展示 | user 字段已知（`{id, phone, nickname, status, created_at}`）；**修改接口仍缺** |
-| 修改密码 `pages/mine/password` | 原密码+新密码 | 改密接口仍缺（后端未提供） |
+| 修改密码 `pages/mine/password` | 原密码+新密码 | ✅ `POST /app/auth/change-password`（Bearer + `{"old_password","new_password"}`；成功后其它设备全部登出，响应返回新令牌对需原子替换） |
 | 设置 `pages/mine/settings` | 清除缓存、退出登录 | 退出可调 `POST /app/auth/logout`（吊销 refresh_token）+ 本地清 token |
 
 ---
@@ -409,7 +409,7 @@ v0.1 的多数缺口已随 `docs/api/app-api.md` v0.2 落地，当前状态：
 | 查看绑定码（App 端） | 设备设置 | ❌ 仍无（控制台专属接口）；家人共享走机身印刷码 |
 | 设备日志 | 设备详情入口 | ❌ 无 App 端日志接口（可用 SSE 缓存做本地时间线兜底） |
 | 离线消息推送 | 首页 🔔 消息中心 | ❌ 无厂商推送通道（SSE 仅前台） |
-| 修改密码 | 我的 | ❌ 接口缺失 |
+| 修改密码 | 我的 | ✅ `POST /app/auth/change-password`（改密即全设备登出，当前设备拿新令牌续用） |
 | 房间/场景/自动化/家庭组 | — | ❌ 后端无支持，延后 |
 
 ---

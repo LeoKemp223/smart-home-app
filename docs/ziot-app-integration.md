@@ -63,6 +63,7 @@
 | 注册（开放） | `POST /api/v1/app/auth/register` | 无 |
 | 登录 | `POST /api/v1/app/auth/login` | 无 |
 | 刷新令牌（旋转式） | `POST /api/v1/app/auth/refresh` | 无（凭 refresh_token） |
+| **修改密码** | `POST /api/v1/app/auth/change-password` | Bearer |
 | 登出 | `POST /api/v1/app/auth/logout` | 无（凭 refresh_token） |
 | 当前用户 | `GET /api/v1/app/me` | Bearer |
 | 业务接口 | — | `Authorization: Bearer <access_token>` |
@@ -102,6 +103,7 @@
 | 注册 | `{"phone":"13912345678","password":"Pass1234","nickname":"小明"}`（nickname 可选，缺省为「用户」+手机尾 4 位） |
 | 登录 | `{"phone":"...","password":"..."}` ✅ 已确认 |
 | 刷新 | `{"refresh_token":"art_xxx"}` ✅ 已确认 |
+| **修改密码** | `{"old_password":"...","new_password":"..."}`（Bearer，新密码 8-128 位；限流 10/min/IP）。成功后**吊销全部刷新令牌（其它设备全部登出）**，响应返回新令牌对，当前设备原子替换后无感续用 |
 | 登出 | `{"refresh_token":"art_xxx"}`，响应 `data: {}`；access_token 未过期前仍有效（最多 15 分钟），介意由 APP 端立即丢弃 |
 
 字段规则（已确认）：
@@ -309,17 +311,18 @@ curl -s -X DELETE {BASE_URL}/api/v1/app/devices/{deviceId} \
 | 1 | 注册 | POST | `/api/v1/app/auth/register` | — |
 | 2 | 登录 | POST | `/api/v1/app/auth/login` | — |
 | 3 | 刷新令牌 | POST | `/api/v1/app/auth/refresh` | — |
-| 4 | 登出 | POST | `/api/v1/app/auth/logout` | — |
-| 5 | 当前用户 | GET | `/api/v1/app/me` | Bearer |
-| 6 | 绑定设备 | POST | `/api/v1/app/devices/bind` | Bearer |
-| 7 | 我的设备列表 | GET | `/api/v1/app/devices` | Bearer |
-| 8 | 改别名 | PATCH | `/api/v1/app/devices/{deviceId}` | Bearer |
-| 9 | 解绑 | DELETE | `/api/v1/app/devices/{deviceId}` | Bearer |
-| 10 | 设备影子 | GET | `/api/v1/app/devices/{deviceId}/shadow` | Bearer |
-| 11 | 异步控制 | POST | `/api/v1/app/devices/{deviceId}/commands` | Bearer |
-| 12 | 同步控制（推荐） | POST | `/api/v1/app/devices/{deviceId}/commands:sync` | Bearer |
-| 13 | 命令详情 | GET | `/api/v1/app/commands/{commandId}` | Bearer |
-| 14 | 实时事件流 | GET（SSE） | `/api/v1/app/events/stream` | Bearer |
+| 4 | 修改密码 | POST | `/api/v1/app/auth/change-password` | Bearer |
+| 5 | 登出 | POST | `/api/v1/app/auth/logout` | — |
+| 6 | 当前用户 | GET | `/api/v1/app/me` | Bearer |
+| 7 | 绑定设备 | POST | `/api/v1/app/devices/bind` | Bearer |
+| 8 | 我的设备列表 | GET | `/api/v1/app/devices` | Bearer |
+| 9 | 改别名 | PATCH | `/api/v1/app/devices/{deviceId}` | Bearer |
+| 10 | 解绑 | DELETE | `/api/v1/app/devices/{deviceId}` | Bearer |
+| 11 | 设备影子 | GET | `/api/v1/app/devices/{deviceId}/shadow` | Bearer |
+| 12 | 异步控制 | POST | `/api/v1/app/devices/{deviceId}/commands` | Bearer |
+| 13 | 同步控制（推荐） | POST | `/api/v1/app/devices/{deviceId}/commands:sync` | Bearer |
+| 14 | 命令详情 | GET | `/api/v1/app/commands/{commandId}` | Bearer |
+| 15 | 实时事件流 | GET（SSE） | `/api/v1/app/events/stream` | Bearer |
 
 ---
 
@@ -383,9 +386,9 @@ Broker: www.ziot.asia:1883 / 8883(TLS)
 | ~~7~~ | ~~user 对象字段~~ | — | ✅ `{id, phone, nickname, status, created_at}` |
 | ~~8~~ | ~~实时推送通道~~ | — | ✅ SSE 已上线，见 §5.3 |
 | ~~9~~ | ~~解绑接口~~ | — | ✅ `DELETE /api/v1/app/devices/{id}`，见 §7 |
-| 10a | 修改密码接口 | 我的页面 | 🟡 未提供（登出已有） |
+| ~~10a~~ | ~~修改密码接口~~ | — | ✅ `POST /app/auth/change-password`（旧密码校验 + 全量吊销刷新令牌 + 返回新会话） |
 | 10b | 设备日志/上报记录的 App 端查询接口 | 设备详情日志页 | 🟡 未提供（控制台有「设备记录」接口但走 Cookie 会话，App 不可用） |
-| 10c | 消息推送（后台/离线通知） | 消息中心 | 🟡 未提供（SSE 仅前台长连接） |
+| 10c | 消息推送（后台/离线通知） | 消息中心 | 🟡 未提供（SSE 仅前台长连接；前台实时展示已覆盖） |
 | 10d | App 端查看设备绑定码 | 设备设置页「分享给家人」 | 🟢 未提供（绑定码查看/轮换是控制台接口；家人扫码用机身印刷的码即可） |
 | 10e | 设备列表分页 | 设备很多时 | 🟢 当前全量返回，量级大时需后端加 |
 
@@ -403,7 +406,7 @@ Broker: www.ziot.asia:1883 / 8883(TLS)
 src/
 ├── api/                  # 按域拆分的 API 模块
 │   ├── request.ts        # uni.request 封装：注入 Bearer、401001 自动刷新+重放（加锁，旋转式令牌）
-│   ├── auth.ts           # register / login / refresh / logout / me
+│   ├── auth.ts           # register / login / refresh / change-password / logout / me
 │   ├── device.ts         # bind / list / alias(PATCH) / unbind(DELETE) / shadow / commands(:sync) / command detail
 │   └── sse.ts            # SSE 长连接：fetch 流式解析 event:/data: 帧，断线重连后先拉列表+shadow 对齐
 ├── stores/auth.ts        # 令牌持久化（uni.setStorageSync，原子替换）
