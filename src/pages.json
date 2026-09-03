@@ -45,6 +45,9 @@
     "selectedColor": "#2F6BFF",
     "backgroundColor": "#FFFFFF",
     "borderStyle": "white",
+    "fontSize": "14px",
+    "height": "58px",
+    "iconWidth": "30px",
     "list": [
       {
         "pagePath": "pages/home/index",
