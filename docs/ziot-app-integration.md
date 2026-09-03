@@ -256,7 +256,56 @@ curl -s -X POST {BASE_URL}/api/v1/app/devices/{deviceId}/commands:sync \
 curl -s {BASE_URL}/api/v1/app/commands/{commandId} -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
-### 6.2 参数说明
+### 6.2 命令对象（Command）字段 ✅ 已回填
+
+`commands` / `commands:sync` 的响应 `data`、命令详情的响应 `data` 均为同一结构（18 个字段）：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | string | 命令 ID（**字段名就是 `id`**，不是 command_id） |
+| `org_id` | string | 组织 ID |
+| `device_id` | string | 目标设备 ID |
+| `device_name` | string | 设备名称 |
+| `product_key` | string | 产品标识 |
+| `device_key` | string | 设备标识 |
+| `identifier` | string | `property.set`（属性设置）或服务标识（服务调用）。**请求里的 `kind` 不回显**，靠它区分 |
+| `params` | unknown | 请求参数**原样回显** |
+| `status` | string | `pending` / `success` / `failed`（存量历史可能出现 `sent` / `timeout`） |
+| `request_id` | string | MQTT 报文关联 ID，与 `id` 同值 |
+| `result` | unknown \| null | 设备应答透传数据；投递语义下通常为 `null` |
+| `error_code` | string \| null | 失败错误码（如 `publish_failed`） |
+| `error_message` | string \| null | 失败原因，UI 失败提示可直接用 |
+| `timeout_at` | string (ISO 8601) | 兼容保留的超时时刻，不再影响结果 |
+| `sent_at` | string \| null | 发布到 Broker 的时间 |
+| `replied_at` | string \| null | 收到设备可选应答的时间（通常 `null`） |
+| `created_at` | string (ISO 8601) | 创建时间 |
+| `updated_at` | string (ISO 8601) | 状态最后更新时间 |
+
+```ts
+// TypeScript 参考
+interface AppCommand {
+  id: string;
+  org_id: string;
+  device_id: string;
+  device_name: string;
+  product_key: string;
+  device_key: string;
+  identifier: string;          // "property.set" 或服务标识
+  params: unknown;
+  status: "pending" | "success" | "failed" | string;  // 存量含 sent/timeout
+  request_id: string;
+  result: unknown;
+  error_code: string | null;
+  error_message: string | null;
+  timeout_at: string;
+  sent_at: string | null;
+  replied_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+```
+
+### 6.3 参数说明
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -265,7 +314,7 @@ curl -s {BASE_URL}/api/v1/app/commands/{commandId} -H "Authorization: Bearer $AC
 | params | object | 参数，必须是 JSON 对象；取值由产品固件定义，需与设备侧约定对齐 |
 | timeout_ms | number | **兼容保留字段，不再影响结果**（新命令创建即终态）；可不传 |
 
-### 6.3 命令状态机（⚠️ v0.1 文档已过期，以此为准）
+### 6.4 命令状态机（⚠️ v0.1 文档已过期，以此为准）
 
 ```
 pending → success / failed
@@ -276,7 +325,7 @@ pending → success / failed
 - 存量历史命令可能出现 `sent` / `timeout`（旧版等待应答的语义），UI 兜底展示即可。
 - **确认设备真实执行**：看 SSE `device.shadow.updated` 推送或轮询 shadow `reported` 是否收敛到设置值。
 
-### 6.4 APP 端实现要点
+### 6.5 APP 端实现要点
 
 - 控制按钮置 loading；接口几十毫秒返回投递结果——`success` 只代表「已送达 Broker」，UI 提示建议用「已发送」而非「已执行」。
 - 控制后**以 shadow/SSE 回读值为准**刷新 UI，不要直接改本地状态（设备可能拒绝或修正参数）。
@@ -382,7 +431,7 @@ Broker: www.ziot.asia:1883 / 8883(TLS)
 | ~~3~~ | ~~刷新令牌请求体~~ | — | ✅ `{"refresh_token"}` |
 | ~~4~~ | ~~统一响应包络与错误码表~~ | — | ✅ 见 §2 |
 | ~~5~~ | ~~设备列表/绑定响应字段结构~~ | — | ✅ 见 §4.3 设备对象 |
-| ~~6~~ | ~~commands:sync 响应字段与终态判定~~ | — | ✅ 投递语义，见 §6.3 |
+| ~~6~~ | ~~commands:sync 响应字段与终态判定~~ | — | ✅ 命令对象 18 字段见 §6.2；投递语义与状态机见 §6.4 |
 | ~~7~~ | ~~user 对象字段~~ | — | ✅ `{id, phone, nickname, status, created_at}` |
 | ~~8~~ | ~~实时推送通道~~ | — | ✅ SSE 已上线，见 §5.3 |
 | ~~9~~ | ~~解绑接口~~ | — | ✅ `DELETE /api/v1/app/devices/{id}`，见 §7 |
