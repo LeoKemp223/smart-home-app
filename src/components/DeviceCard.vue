@@ -88,19 +88,20 @@ const statusLabel = computed(() =>
 
 <style scoped lang="scss">
 .dcard {
-  min-height: 256rpx;
+  min-height: 268rpx;
   padding: 28rpx;
   border-radius: $radius-card;
   background: $bg-card;
   border: 1rpx solid $border-1;
-  box-shadow: 0 2rpx 8rpx rgba(15, 23, 42, 0.03);
+  box-shadow: $shadow-card;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  transition: transform 0.15s ease;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
 
   &:active {
-    transform: scale(0.98);
+    transform: scale(0.985);
+    box-shadow: 0 3rpx 10rpx rgba(15, 23, 42, 0.06);
   }
 
   &--offline {

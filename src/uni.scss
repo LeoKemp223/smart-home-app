@@ -22,6 +22,7 @@ $text-3: #94a3b8; // slate-400 辅助
 $bg-page: #f8fafc; // slate-50
 $bg-card: #ffffff;
 $bg-hover: #f1f5f9;
+$bg-muted: #f8fafc;
 
 /* 边框 */
 $border-1: #f1f5f9; // slate-100
@@ -31,6 +32,11 @@ $border-2: #e2e8f0; // slate-200
 $radius-card: 24rpx;
 $radius-btn: 20rpx;
 $radius-tag: 999rpx;
+
+$page-gutter: 32rpx;
+$section-gap: 28rpx;
+$shadow-card: 0 8rpx 24rpx rgba(15, 23, 42, 0.045);
+$shadow-float: 0 16rpx 40rpx rgba(15, 23, 42, 0.1);
 
 /* uni-app 官方变量（保持插件生态兼容） */
 $uni-color-primary: #2f6bff;

@@ -3,12 +3,11 @@ import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getUser, logout, changePassword } from '@/api/mock/ziot-mock'
 import type { User } from '@/types'
-import { bindToast, useToast, Toast } from '@/composables/useToast'
+import { useToast } from '@/composables/useToast'
 import { requireAuth } from '@/composables/useDeviceEvents'
 import ZModal from '@/components/ZModal.vue'
 import ZIcon from '@/components/ZIcon.vue'
 
-const toastRef = ref<InstanceType<typeof Toast> | null>(null)
 const { show: showToast } = useToast()
 
 const user = ref<User | null>(null)
@@ -198,7 +197,6 @@ async function submitChangePwd() {
       </view>
     </ZModal>
 
-    <Toast :ref="(el: any) => { toastRef = el; bindToast(el) }" />
   </view>
 </template>
 
@@ -473,5 +471,42 @@ async function submitChangePwd() {
       border: none;
     }
   }
+}
+.mine {
+  background:
+    radial-gradient(circle at 100% 0, rgba(47, 107, 255, 0.1), transparent 28%),
+    $bg-page;
+}
+
+.mine__header {
+  border-bottom: none;
+  box-shadow: 0 8rpx 22rpx rgba(15, 23, 42, 0.025);
+}
+
+.mine__group {
+  box-shadow: $shadow-card;
+}
+
+.mine__row {
+  transition: background 0.16s ease, transform 0.16s ease;
+}
+
+.mine__row:active {
+  background: $brand-50;
+  transform: scale(0.995);
+}
+
+.mine__logout {
+  transition: transform 0.16s ease, background 0.16s ease;
+}
+
+.mine__logout:active {
+  transform: scale(0.99);
+  background: rgba(250, 81, 81, 0.08);
+}
+
+.pwd__input:focus {
+  border-color: $brand;
+  box-shadow: 0 0 0 6rpx rgba(47, 107, 255, 0.1);
 }
 </style>

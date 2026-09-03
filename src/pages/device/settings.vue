@@ -3,13 +3,12 @@ import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getDeviceById, patchDeviceAlias, unbindDevice } from '@/api/mock/ziot-mock'
 import type { Device } from '@/types'
-import { bindToast, useToast, Toast } from '@/composables/useToast'
+import { useToast } from '@/composables/useToast'
 import { requireAuth } from '@/composables/useDeviceEvents'
 import NavBar from '@/components/NavBar.vue'
 import ZIcon from '@/components/ZIcon.vue'
 import ZModal from '@/components/ZModal.vue'
 
-const toastRef = ref<InstanceType<typeof Toast> | null>(null)
 const { show: showToast } = useToast()
 
 const deviceId = ref('')
@@ -212,7 +211,6 @@ function copyDeviceId() {
       </view>
     </ZModal>
 
-    <Toast :ref="(el: any) => { toastRef = el; bindToast(el) }" />
   </view>
 </template>
 
@@ -460,5 +458,34 @@ function copyDeviceId() {
     color: $text-2;
     line-height: 1.8;
   }
+}
+.ds {
+  background: $bg-page;
+}
+
+.ds__group {
+  box-shadow: $shadow-card;
+}
+
+.ds__row--tap,
+.ds__copy,
+.ds__edit {
+  transition: background 0.16s ease, transform 0.16s ease;
+}
+
+.ds__row--tap:active,
+.ds__copy:active,
+.ds__edit:active {
+  background: $brand-50;
+  transform: scale(0.98);
+}
+
+.ds__share-tip {
+  border: 1rpx solid rgba(47, 107, 255, 0.1);
+}
+
+.ds__alias-input:focus {
+  border-color: $brand;
+  box-shadow: 0 0 0 6rpx rgba(47, 107, 255, 0.1);
 }
 </style>

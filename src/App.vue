@@ -21,14 +21,27 @@ page {
     'PingFang SC',
     'Microsoft YaHei',
     sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+view,
+text,
+button,
+input {
+  box-sizing: border-box;
+}
+
+button {
+  line-height: 1.2;
 }
 
 /* 通用工具类（对齐参考设计的视觉语言） */
 .zi-card {
   background: #ffffff;
-  border-radius: 24rpx;
+  border-radius: 28rpx;
   border: 1rpx solid #f1f5f9;
-  box-shadow: 0 2rpx 8rpx rgba(15, 23, 42, 0.03);
+  box-shadow: 0 8rpx 24rpx rgba(15, 23, 42, 0.045);
 }
 
 .zi-btn-primary {
@@ -47,6 +60,11 @@ page {
   opacity: 0.5;
 }
 
+.zi-btn-primary:active {
+  transform: translateY(1rpx) scale(0.99);
+  box-shadow: 0 4rpx 12rpx rgba(47, 107, 255, 0.2);
+}
+
 .zi-btn-ghost {
   background: #f1f5f9;
   color: #475569;
@@ -55,6 +73,18 @@ page {
 }
 .zi-btn-ghost::after {
   border: none;
+}
+
+.zi-btn-ghost:active {
+  background: #e2e8f0;
+}
+
+.zi-page-title {
+  display: block;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #475569;
+  letter-spacing: 1rpx;
 }
 
 /* 加载旋转 */

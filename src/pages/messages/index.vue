@@ -3,11 +3,10 @@ import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getMessages, markMessageRead, markAllMessagesRead } from '@/api/mock/ziot-mock'
 import type { NotificationItem } from '@/types'
-import { bindToast, useToast, Toast } from '@/composables/useToast'
+import { useToast } from '@/composables/useToast'
 import NavBar from '@/components/NavBar.vue'
 import ZIcon from '@/components/ZIcon.vue'
 
-const toastRef = ref<InstanceType<typeof Toast> | null>(null)
 const { show: showToast } = useToast()
 
 const messages = ref<NotificationItem[]>([])
@@ -75,7 +74,6 @@ function readOne(msg: NotificationItem) {
       <text class="msgs__hint">提示：当前消息基于 SSE 前台实时事件与本地会话通知</text>
     </view>
 
-    <Toast :ref="(el: any) => { toastRef = el; bindToast(el) }" />
   </view>
 </template>
 
@@ -191,5 +189,32 @@ function readOne(msg: NotificationItem) {
     font-size: 20rpx;
     color: $text-3;
   }
+}
+.msgs {
+  background: $bg-page;
+}
+
+.msgs__item {
+  box-shadow: $shadow-card;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.msgs__item:active {
+  transform: scale(0.99);
+  box-shadow: 0 4rpx 12rpx rgba(15, 23, 42, 0.06);
+}
+
+.msgs__read-all {
+  border-radius: $radius-tag;
+  padding: 12rpx 20rpx;
+  background: $brand-50;
+}
+
+.msgs__empty {
+  min-height: 440rpx;
+  justify-content: center;
+  border: 1rpx dashed $border-2;
+  border-radius: $radius-card;
+  background: rgba(255, 255, 255, 0.7);
 }
 </style>

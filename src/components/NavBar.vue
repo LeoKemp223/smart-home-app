@@ -54,7 +54,7 @@ function handleBack() {
   }
 
   &__main {
-    height: 88rpx;
+    min-height: 92rpx;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -75,13 +75,18 @@ function handleBack() {
     padding: 8rpx;
     margin-left: -8rpx;
     border-radius: 50%;
+
+    &:active {
+      background: rgba(15, 23, 42, 0.06);
+    }
   }
 
   &__title {
     flex: 1;
     text-align: center;
     font-size: 32rpx;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: 0.5rpx;
     color: $text-1;
   }
 }

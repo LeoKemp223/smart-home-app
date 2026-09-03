@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { login, register } from '@/api/mock/ziot-mock'
-import { bindToast, useToast, Toast } from '@/composables/useToast'
+import { useToast } from '@/composables/useToast'
 import ZIcon from '@/components/ZIcon.vue'
 
-const { show } = useToast()
+const { show: showToast } = useToast()
 
 const isRegister = ref(false)
 const phone = ref('13800138000')
@@ -13,27 +13,18 @@ const nickname = ref('')
 const showPassword = ref(false)
 const agreeTerms = ref(true)
 const loading = ref(false)
-const toastRef = ref<InstanceType<typeof Toast> | null>(null)
-bindToast(null) // 占位，onReady 后绑定
-
-function onToastReady() {
-  // 模板 ref 挂载时机
-}
 
 async function handleSubmit() {
-  if (toastRef.value) bindToast(toastRef.value)
-  const { show: toast } = useToast()
-
   if (!agreeTerms.value) {
-    toast('请先阅读并勾选用户协议与隐私政策', 'error')
+    showToast('请先阅读并勾选用户协议与隐私政策', 'error')
     return
   }
   if (!/^1[3-9]\d{9}$/.test(phone.value)) {
-    toast('请输入正确的11位大陆手机号码', 'error')
+    showToast('请输入正确的11位大陆手机号码', 'error')
     return
   }
   if (password.value.length < 8 || password.value.length > 128) {
-    toast('密码长度须在 8-128 位之间', 'error')
+    showToast('密码长度须在 8-128 位之间', 'error')
     return
   }
 
@@ -41,14 +32,14 @@ async function handleSubmit() {
     loading.value = true
     if (isRegister.value) {
       await register(phone.value, password.value, nickname.value)
-      toast('注册成功，已自动登录', 'success')
+      showToast('注册成功，已自动登录', 'success')
     } else {
       await login(phone.value, password.value)
-      toast('登录成功', 'success')
+      showToast('登录成功', 'success')
     }
     uni.reLaunch({ url: '/pages/home/index' })
   } catch (err) {
-    toast((err as Error)?.message || '请求失败，请稍后重试', 'error')
+    showToast((err as Error)?.message || '请求失败，请稍后重试', 'error')
   } finally {
     loading.value = false
   }
@@ -150,7 +141,6 @@ async function handleSubmit() {
       <text>ZIOT Console 开放云端协议 v0.2 · SSE 实时总线保活</text>
     </view>
 
-    <Toast :ref="(el: any) => { toastRef = el; bindToast(el) }" />
   </view>
 </template>
 
@@ -330,5 +320,39 @@ async function handleSubmit() {
   &__eye {
     padding: 8rpx;
   }
+}
+.login__brand {
+  padding-bottom: 42rpx;
+}
+
+.login__form {
+  border-color: rgba(219, 230, 255, 0.8);
+  box-shadow: 0 20rpx 50rpx rgba(15, 23, 42, 0.06);
+}
+
+.login__tab {
+  transition: color 0.16s ease;
+}
+
+.login__tab:active {
+  opacity: 0.68;
+}
+
+.field__box {
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+
+  &:focus-within {
+    background: #fff;
+    box-shadow: 0 0 0 6rpx rgba(47, 107, 255, 0.1);
+  }
+}
+
+.login__checkbox:active,
+.field__eye:active {
+  transform: scale(0.9);
+}
+
+.login__footer {
+  line-height: 1.7;
 }
 </style>

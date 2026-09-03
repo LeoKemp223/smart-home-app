@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { parseBindingCode } from '@/api/mock/ziot-mock'
-import { bindToast, useToast, Toast } from '@/composables/useToast'
+import { useToast } from '@/composables/useToast'
 import { requireAuth } from '@/composables/useDeviceEvents'
 import NavBar from '@/components/NavBar.vue'
 import ZIcon from '@/components/ZIcon.vue'
 
-const toastRef = ref<InstanceType<typeof Toast> | null>(null)
 const { show: showToast } = useToast()
 
 const activeMode = ref<'scan' | 'manual'>('scan')
@@ -173,7 +172,6 @@ function simulateScan(code: string) {
       </view>
     </view>
 
-    <Toast :ref="(el: any) => { toastRef = el; bindToast(el) }" />
   </view>
 </template>
 
@@ -476,5 +474,39 @@ function simulateScan(code: string) {
     opacity: 1;
     transform: translateY(320rpx);
   }
+}
+.add {
+  background:
+    radial-gradient(circle at 100% 4%, rgba(47, 107, 255, 0.1), transparent 26%),
+    $bg-page;
+}
+
+.add__modes {
+  padding: 8rpx;
+  background: rgba(226, 232, 240, 0.72);
+}
+
+.add__mode {
+  transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.add__preset,
+.add__manual,
+.add__notice {
+  box-shadow: $shadow-card;
+}
+
+.add__preset-item:active,
+.add__mode:active {
+  transform: scale(0.99);
+}
+
+.add__manual-input:focus {
+  border-color: $brand;
+  box-shadow: 0 0 0 6rpx rgba(47, 107, 255, 0.1);
+}
+
+.viewfinder {
+  box-shadow: 0 18rpx 36rpx rgba(15, 23, 42, 0.12);
 }
 </style>

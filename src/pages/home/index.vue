@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { onShow, onHide } from '@dcloudio/uni-app'
+import { onShow, onHide , onReady } from '@dcloudio/uni-app'
 import { getDevices, patchDeviceAlias, unbindDevice } from '@/api/mock/ziot-mock'
 import type { Device } from '@/types'
-import { bindToast, useToast, Toast } from '@/composables/useToast'
+import { useToast } from '@/composables/useToast'
 import { useDeviceEvents, requireAuth } from '@/composables/useDeviceEvents'
 import DeviceCard from '@/components/DeviceCard.vue'
 import ZModal from '@/components/ZModal.vue'
 import ZIcon from '@/components/ZIcon.vue'
 
-const toastRef = ref<InstanceType<typeof Toast> | null>(null)
 const { show: showToast } = useToast()
 
 const devices = ref<Device[]>([])
@@ -311,7 +310,6 @@ async function confirmUnbind() {
       </view>
     </ZModal>
 
-    <Toast :ref="(el: any) => { toastRef = el; bindToast(el) }" />
   </view>
 </template>
 
@@ -749,5 +747,54 @@ async function confirmUnbind() {
     color: $text-2;
     line-height: 1.8;
   }
+}
+.home {
+  background:
+    radial-gradient(circle at 92% 0, rgba(47, 107, 255, 0.1), transparent 26%),
+    $bg-page;
+}
+
+.home__header {
+  box-shadow: 0 8rpx 22rpx rgba(15, 23, 42, 0.025);
+}
+
+.home__pills {
+  padding-top: 8rpx;
+  padding-bottom: 8rpx;
+}
+
+.home__pill:not(.home__pill--active) {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1rpx solid $border-1;
+}
+
+.home__grid {
+  padding-top: 12rpx;
+}
+
+.home__add-tile {
+  border-style: dashed;
+  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+
+  &:active {
+    transform: scale(0.985);
+    border-color: $brand;
+    background: $brand-50;
+  }
+}
+
+.sheet__panel {
+  box-shadow: $shadow-float;
+}
+
+.sheet__item:active,
+.home__action-btn:active {
+  background: $bg-hover;
+  transform: scale(0.97);
+}
+
+.modal__input:focus {
+  border-color: $brand;
+  box-shadow: 0 0 0 6rpx rgba(47, 107, 255, 0.1);
 }
 </style>

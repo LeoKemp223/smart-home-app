@@ -3,11 +3,10 @@ import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { previewBinding, confirmBinding } from '@/api/mock/ziot-mock'
 import type { DeviceCategory } from '@/types'
-import { bindToast, useToast, Toast } from '@/composables/useToast'
+import { useToast } from '@/composables/useToast'
 import NavBar from '@/components/NavBar.vue'
 import ZIcon from '@/components/ZIcon.vue'
 
-const toastRef = ref<InstanceType<typeof Toast> | null>(null)
 const { show: showToast } = useToast()
 
 const code = ref('')
@@ -94,7 +93,6 @@ async function handleConfirmBind() {
       </button>
     </view>
 
-    <Toast :ref="(el: any) => { toastRef = el; bindToast(el) }" />
   </view>
 </template>
 
@@ -203,5 +201,27 @@ async function handleConfirmBind() {
     border-radius: 32rpx;
     box-shadow: 0 16rpx 32rpx rgba(47, 107, 255, 0.3);
   }
+}
+.confirm {
+  background:
+    radial-gradient(circle at 100% 0, rgba(47, 107, 255, 0.1), transparent 28%),
+    $bg-page;
+}
+
+.confirm__card {
+  border-color: rgba(219, 230, 255, 0.9);
+  box-shadow: 0 18rpx 40rpx rgba(15, 23, 42, 0.06);
+}
+
+.confirm__code-chip {
+  letter-spacing: 1rpx;
+}
+
+.confirm__share {
+  border: 1rpx solid rgba(47, 107, 255, 0.1);
+}
+
+.confirm__submit {
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
 }
 </style>

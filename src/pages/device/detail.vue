@@ -1,16 +1,15 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { onLoad, onShow, onHide } from '@dcloudio/uni-app'
+import { onLoad, onShow, onHide , onReady } from '@dcloudio/uni-app'
 import { getDeviceById, getEventLogs, sendCommandSync } from '@/api/mock/ziot-mock'
 import type { Device, ControlItem, DeviceEventLog } from '@/types'
 import { getPanel } from '@/data/product-panels'
-import { bindToast, useToast, Toast } from '@/composables/useToast'
+import { useToast } from '@/composables/useToast'
 import { useDeviceEvents, requireAuth } from '@/composables/useDeviceEvents'
 import NavBar from '@/components/NavBar.vue'
 import ZIcon from '@/components/ZIcon.vue'
 import ZModal from '@/components/ZModal.vue'
 
-const toastRef = ref<InstanceType<typeof Toast> | null>(null)
 const { show: showToast } = useToast()
 
 const deviceId = ref('')
@@ -307,7 +306,6 @@ function statValue(prop: string): string {
       </view>
     </ZModal>
 
-    <Toast :ref="(el: any) => { toastRef = el; bindToast(el) }" />
   </view>
 </template>
 
@@ -770,5 +768,47 @@ function statValue(prop: string): string {
   50% {
     opacity: 0.4;
   }
+}
+.detail {
+  background: $bg-page;
+}
+
+.detail__hero {
+  box-shadow: 0 18rpx 42rpx rgba(47, 107, 255, 0.18);
+}
+
+.detail__stat {
+  transition: background 0.16s ease;
+}
+
+.detail__tabs {
+  background: rgba(226, 232, 240, 0.72);
+  padding: 6rpx;
+  border-radius: 18rpx;
+}
+
+.detail__tab {
+  border-radius: 14rpx;
+}
+
+.ctrl,
+.detail__logs {
+  box-shadow: $shadow-card;
+}
+
+.ctrl__option,
+.ctrl__action-btn,
+.switch {
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.ctrl__option:active,
+.ctrl__action-btn:active,
+.switch:active {
+  transform: scale(0.98);
+}
+
+.detail__log-item + .detail__log-item {
+  margin-top: 6rpx;
 }
 </style>
