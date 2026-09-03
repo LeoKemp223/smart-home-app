@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { onShow, onHide , onReady } from '@dcloudio/uni-app'
-import { getDevices, patchDeviceAlias, unbindDevice } from '@/api/mock/ziot-mock'
+import { listDevices, updateDeviceAlias, unbindDevice } from '@/api/device'
 import type { Device } from '@/types'
 import { useToast } from '@/composables/useToast'
 import { useDeviceEvents, requireAuth } from '@/composables/useDeviceEvents'
@@ -25,8 +25,8 @@ const unbindLoading = ref(false)
 
 const unreadCount = computed(() => 0) // 消息页维护，暂不做跨页未读
 
-function loadDevices() {
-  devices.value = getDevices()
+async function loadDevices() {
+  devices.value = await listDevices()
 }
 
 onShow(() => {
@@ -95,9 +95,6 @@ function onCardLongPress(d: Device) {
   showActionSheet.value = true
 }
 
-function goMessages() {
-  uni.navigateTo({ url: '/pages/messages/index' })
-}
 function goAdd() {
   uni.switchTab({ url: '/pages/add/index' })
 }
@@ -115,7 +112,7 @@ async function saveAlias() {
   if (!actionDevice.value) return
   try {
     aliasLoading.value = true
-    await patchDeviceAlias(actionDevice.value.device_id, aliasInput.value)
+    await updateDeviceAlias(actionDevice.value.device_id, aliasInput.value)
     showToast('别名已更新', 'success')
     showAliasModal.value = false
     loadDevices()
@@ -165,10 +162,6 @@ async function confirmUnbind() {
         <view class="home__actions">
           <view class="home__action-btn" :class="{ 'home__action-btn--spin': isRefreshing }" @tap="handleRefresh">
             <ZIcon name="refresh" :size="34" :color="isRefreshing ? '#2F6BFF' : '#475569'" />
-          </view>
-          <view class="home__action-btn" @tap="goMessages">
-            <ZIcon name="bell" :size="36" color="#475569" />
-            <view v-if="unreadCount > 0" class="home__badge" />
           </view>
         </view>
       </view>

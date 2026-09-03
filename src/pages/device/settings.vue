@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
-import { getDeviceById, patchDeviceAlias, unbindDevice } from '@/api/mock/ziot-mock'
+import { getDevice, updateDeviceAlias, unbindDevice } from '@/api/device'
 import type { Device } from '@/types'
 import { useToast } from '@/composables/useToast'
 import { requireAuth } from '@/composables/useDeviceEvents'
@@ -23,9 +23,9 @@ const copied = ref(false)
 
 const isOnline = computed(() => device.value?.online_status === 'online')
 
-function refresh() {
+async function refresh() {
   if (!deviceId.value) return
-  device.value = getDeviceById(deviceId.value) || device.value
+  device.value = (await getDevice(deviceId.value)) || device.value
 }
 
 onLoad((options) => {
@@ -45,7 +45,7 @@ async function saveAlias() {
   if (!deviceId.value) return
   try {
     aliasLoading.value = true
-    await patchDeviceAlias(deviceId.value, aliasInput.value)
+    await updateDeviceAlias(deviceId.value, aliasInput.value)
     showToast('别名修改成功', 'success')
     showAliasModal.value = false
     refresh()

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { parseBindingCode } from '@/api/mock/ziot-mock'
+import { parseBindingCode } from '@/api/device'
 import { useToast } from '@/composables/useToast'
 import { requireAuth } from '@/composables/useDeviceEvents'
 import NavBar from '@/components/NavBar.vue'

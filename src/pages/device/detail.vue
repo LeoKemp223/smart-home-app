@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { onLoad, onShow, onHide , onReady } from '@dcloudio/uni-app'
-import { getDeviceById, getEventLogs, sendCommandSync } from '@/api/mock/ziot-mock'
-import type { Device, ControlItem, DeviceEventLog } from '@/types'
+import { getDevice, getDeviceShadow, sendCommandSync } from '@/api/device'
+import type { Device, ControlItem } from '@/types'
 import { getPanel } from '@/data/product-panels'
 import { useToast } from '@/composables/useToast'
 import { useDeviceEvents, requireAuth } from '@/composables/useDeviceEvents'
@@ -15,8 +15,7 @@ const { show: showToast } = useToast()
 const deviceId = ref('')
 const device = ref<Device | null>(null)
 const loadingIds = ref<Record<string, boolean>>({})
-const activeTab = ref<'control' | 'logs'>('control')
-const logs = ref<DeviceEventLog[]>([])
+
 const confirmItem = ref<ControlItem | null>(null)
 
 const panel = computed(() => getPanel(device.value?.product_id || ''))
@@ -32,10 +31,13 @@ function goSettings() {
   uni.navigateTo({ url: `/pages/device/settings?id=${deviceId.value}` })
 }
 
-function refresh() {
+async function refresh() {
   if (!deviceId.value) return
-  device.value = getDeviceById(deviceId.value) || device.value
-  logs.value = getEventLogs(deviceId.value)
+  const current = await getDevice(deviceId.value)
+  if (current) {
+    const shadow = await getDeviceShadow(deviceId.value)
+    device.value = { ...current, shadow_reported: shadow.reported, shadow_updated_at: shadow.updated_at }
+  }
 }
 
 onLoad((options) => {
@@ -173,16 +175,13 @@ function statValue(prop: string): string {
 
       <!-- Tab 切换 -->
       <view class="detail__tabs">
-        <view class="detail__tab" :class="{ 'detail__tab--active': activeTab === 'control' }" @tap="activeTab = 'control'">
+        <view class="detail__tab detail__tab--active">
           <text>控制面板</text>
-        </view>
-        <view class="detail__tab" :class="{ 'detail__tab--active': activeTab === 'logs' }" @tap="activeTab = 'logs'">
-          <text>上报日志与记录 ({{ logs.length }})</text>
         </view>
       </view>
 
       <!-- 控制面板（模板驱动） -->
-      <view v-if="activeTab === 'control'" class="detail__controls" :class="{ 'detail__controls--off': !isOnline }">
+      <view class="detail__controls" :class="{ 'detail__controls--off': !isOnline }">
         <view v-for="control in panel.controls" :key="control.id">
           <!-- ① switch -->
           <view v-if="control.type === 'switch'" class="zi-card ctrl">
@@ -265,27 +264,7 @@ function statValue(prop: string): string {
         </view>
       </view>
 
-      <!-- 日志 Tab -->
-      <view v-else class="zi-card detail__logs">
-        <view class="detail__logs-head">
-          <text class="detail__logs-title">实时上报与控制时间线</text>
-          <text class="detail__logs-sub">基于本地 SSE 缓存记录</text>
-        </view>
-        <view v-if="logs.length === 0" class="detail__logs-empty">
-          <text>暂无该设备的历史上报记录，在控制面板操作将在此记录</text>
-        </view>
-        <view v-for="log in logs" v-else :key="log.id" class="detail__log-item">
-          <view class="detail__log-dot" />
-          <view class="detail__log-content">
-            <view class="detail__log-row">
-              <text class="detail__log-title">{{ log.title }}</text>
-              <text class="detail__log-time">{{ log.time }}</text>
-            </view>
-            <text class="detail__log-detail">{{ log.detail }}</text>
           </view>
-        </view>
-      </view>
-    </view>
 
     <!-- 服务确认弹窗 -->
     <ZModal :visible="!!confirmItem" :title="confirmItem?.label" @close="confirmItem = null">

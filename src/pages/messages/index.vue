@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { getMessages, markMessageRead, markAllMessagesRead } from '@/api/mock/ziot-mock'
 import type { NotificationItem } from '@/types'
 import { useToast } from '@/composables/useToast'
 import NavBar from '@/components/NavBar.vue'
@@ -12,19 +11,19 @@ const { show: showToast } = useToast()
 const messages = ref<NotificationItem[]>([])
 
 function load() {
-  messages.value = getMessages()
+  messages.value = []
 }
 onShow(load)
 
 function markAll() {
-  markAllMessagesRead()
+
   load()
   showToast('全部消息已标为已读', 'success')
 }
 
 function readOne(msg: NotificationItem) {
   if (msg.read) return
-  markMessageRead(msg.id)
+
   load()
 }
 </script>

@@ -108,10 +108,21 @@ export interface DeviceEventLog {
 
 export interface AppCommand {
   id: string
+  org_id: string
   device_id: string
+  device_name: string
+  product_key: string
+  device_key: string
   identifier: string
   params: unknown
   status: 'pending' | 'success' | 'failed' | string
+  request_id: string
+  result: unknown
+  error_code: string | null
   error_message: string | null
+  timeout_at: string
+  sent_at: string | null
+  replied_at: string | null
   created_at: string
+  updated_at: string
 }

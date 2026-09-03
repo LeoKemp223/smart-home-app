@@ -429,12 +429,23 @@ export async function sendCommandSync(
   const identifier = command.service || 'property.set'
   const cmd: AppCommand = {
     id: `cmd_${Date.now()}`,
+    org_id: 'mock_org',
     device_id: deviceId,
+    device_name: devices[idx].name,
+    product_key: devices[idx].product_key || devices[idx].product_id,
+    device_key: deviceId,
     identifier,
     params: command.prop ? { [command.prop]: command.value } : {},
     status: 'success',
+    request_id: `cmd_${Date.now()}`,
+    result: null,
+    error_code: null,
     error_message: null,
+    timeout_at: nowISO(),
+    sent_at: nowISO(),
+    replied_at: null,
     created_at: nowISO(),
+    updated_at: nowISO(),
   }
 
   // 模拟设备异步执行：450ms 后更新 shadow 并推 SSE

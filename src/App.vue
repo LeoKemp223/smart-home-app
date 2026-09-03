@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { onLaunch } from '@dcloudio/uni-app'
-import { bootstrapSession } from '@/api/mock/ziot-mock'
+import { startSSE } from '@/api/sse'
 
 onLaunch(() => {
   // 已登录则启动 SSE 心跳模拟；登录守卫由各页面 onShow 检查
-  bootstrapSession()
+  if (uni.getStorageSync('ziot_auth_v1')) startSSE()
 })
 </script>
 

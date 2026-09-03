@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { getUser, logout, changePassword } from '@/api/mock/ziot-mock'
+import { getUser, logout, changePassword } from '@/api/auth'
 import type { User } from '@/types'
 import { useToast } from '@/composables/useToast'
 import { requireAuth } from '@/composables/useDeviceEvents'
@@ -29,9 +29,6 @@ onShow(() => {
   user.value = getUser()
 })
 
-function goMessages() {
-  uni.navigateTo({ url: '/pages/messages/index' })
-}
 
 function clearCache() {
   try {
@@ -115,13 +112,6 @@ async function submitChangePwd() {
           <ZIcon name="chevron-right" :size="30" color="#cbd5e1" />
         </view>
         <view class="mine__divider" />
-        <view class="mine__row" @tap="goMessages">
-          <view class="mine__row-icon mine__row-icon--amber">
-            <ZIcon name="bell" :size="30" color="#FF8F1F" />
-          </view>
-          <text class="mine__row-label">消息通知中心</text>
-          <ZIcon name="chevron-right" :size="30" color="#cbd5e1" />
-        </view>
       </view>
 
       <!-- 应用信息 -->

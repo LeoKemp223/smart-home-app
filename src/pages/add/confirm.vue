@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { previewBinding, confirmBinding } from '@/api/mock/ziot-mock'
+import { bindDevice } from '@/api/device'
 import type { DeviceCategory } from '@/types'
 import { useToast } from '@/composables/useToast'
 import NavBar from '@/components/NavBar.vue'
@@ -29,7 +29,7 @@ onLoad((options) => {
 
 async function loadPreview() {
   try {
-    preview.value = await previewBinding(code.value)
+    preview.value = { name: '?????', product_name: '?????????', product_id: '', category: 'other', masked_code: code.value }
   } catch (err) {
     showToast((err as Error)?.message || '无法获取设备信息', 'error')
     setTimeout(() => uni.navigateBack(), 600)
@@ -39,7 +39,7 @@ async function loadPreview() {
 async function handleConfirmBind() {
   try {
     loading.value = true
-    const device = await confirmBinding(code.value)
+    const device = await bindDevice(code.value)
     showToast('设备绑定成功！', 'success')
     setTimeout(() => {
       uni.redirectTo({ url: `/pages/device/detail?id=${device.device_id}` })

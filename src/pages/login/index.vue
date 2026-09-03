@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { login, register } from '@/api/mock/ziot-mock'
+import { login, register } from '@/api/auth'
 import { useToast } from '@/composables/useToast'
 import ZIcon from '@/components/ZIcon.vue'
 
