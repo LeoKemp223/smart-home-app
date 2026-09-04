@@ -18,7 +18,7 @@ const loadingIds = ref<Record<string, boolean>>({})
 
 const confirmItem = ref<ControlItem | null>(null)
 
-const panel = computed(() => getPanel(device.value?.product_id || ''))
+const panel = computed(() => getPanel(device.value?.product_key || device.value?.product_id || ''))
 
 /** 安全读取当前控件的 shadow 值 */
 function getReported(control: ControlItem): any {

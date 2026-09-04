@@ -25,7 +25,7 @@ function onTap() {
   emit('click')
 }
 
-const panel = computed(() => getPanel(props.device.product_id))
+const panel = computed(() => getPanel(props.device.product_key || props.device.product_id))
 const isOnline = computed(() => props.device.online_status === 'online')
 const displayName = computed(() => props.device.alias?.trim() || props.device.name)
 const isDisabled = computed(() => props.device.status === 'disabled')
