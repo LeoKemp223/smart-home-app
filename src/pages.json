@@ -28,6 +28,9 @@
     },
     {
       "path": "pages/messages/index"
+    },
+    {
+      "path": "pages/legal/document"
     }
   ],
   "globalStyle": {

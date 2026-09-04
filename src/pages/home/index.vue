@@ -2,6 +2,8 @@
 import { ref, computed } from 'vue'
 import { onShow, onHide , onReady } from '@dcloudio/uni-app'
 import { listDevices, updateDeviceAlias, unbindDevice } from '@/api/device'
+import { deviceDisplayName, getDeviceMeta, removeDeviceMeta } from '@/utils/device-meta'
+import { statusBarStyle } from '@/utils/status-bar'
 import type { Device } from '@/types'
 import { useToast } from '@/composables/useToast'
 import { useDeviceEvents, requireAuth } from '@/composables/useDeviceEvents'
@@ -25,6 +27,8 @@ const unbindLoading = ref(false)
 
 const unreadCount = computed(() => 0) // 消息页维护，暂不做跨页未读
 
+const headerStyle = statusBarStyle()
+
 async function loadDevices() {
   devices.value = await listDevices()
 }
@@ -36,8 +40,7 @@ onShow(() => {
 
 onHide(() => {})
 
-// SSE 连接状态 + 增量刷新
-const { sseConnected } = useDeviceEvents()
+// SSE 增量刷新（页面不再展示连接状态指示）
 const { onEvent } = useDeviceEvents()
 onEvent((event) => {
   if (event.type === 'device.shadow.updated' || event.type === 'device.status.changed') {
@@ -63,20 +66,25 @@ function getGreeting() {
   return '晚上好'
 }
 
-const userNickname = ref('主人')
-onShow(() => {
-  try {
-    const raw = uni.getStorageSync('ziot_user_v2')
-    if (raw) {
-      const user = JSON.parse(raw)
-      userNickname.value = user.nickname || '主人'
-    }
-  } catch {
-    /* ignore */
-  }
+const onlineCount = computed(() => devices.value.filter((d) => d.online_status === 'online').length)
+
+/** 顶部筛选：'all' 全部 / 'online' 在线 / 其它值为摆放位置（取自本地 device-meta） */
+const activeFilter = ref<string>('all')
+
+const locationTags = computed(() => {
+  const set = new Set<string>()
+  devices.value.forEach((d) => {
+    const loc = getDeviceMeta(d.device_id)?.location?.trim()
+    if (loc) set.add(loc)
+  })
+  return Array.from(set)
 })
 
-const onlineCount = computed(() => devices.value.filter((d) => d.online_status === 'online').length)
+const filteredDevices = computed(() => {
+  if (activeFilter.value === 'all') return devices.value
+  if (activeFilter.value === 'online') return devices.value.filter((d) => d.online_status === 'online')
+  return devices.value.filter((d) => getDeviceMeta(d.device_id)?.location === activeFilter.value)
+})
 
 async function handleRefresh() {
   isRefreshing.value = true
@@ -128,6 +136,7 @@ async function confirmUnbind() {
   try {
     unbindLoading.value = true
     await unbindDevice(actionDevice.value.device_id)
+    removeDeviceMeta(actionDevice.value.device_id)
     showToast('设备已成功解除绑定', 'success')
     showUnbindModal.value = false
     loadDevices()
@@ -142,21 +151,10 @@ async function confirmUnbind() {
 <template>
   <view class="home">
     <!-- 顶部问候区 -->
-    <view class="home__header">
-      <view class="home__status-row">
-        <view class="home__sse" :class="{ 'home__sse--on': sseConnected }">
-          <view class="home__sse-dot" />
-          <text>{{ sseConnected ? 'SSE保活' : '重连中' }}</text>
-        </view>
-        <view class="home__status-icons">
-          <ZIcon name="wifi" :size="26" color="#94a3b8" />
-          <ZIcon name="battery" :size="26" color="#94a3b8" />
-        </view>
-      </view>
-
+    <view class="home__header" :style="headerStyle">
       <view class="home__greet-row">
         <view>
-          <text class="home__greet">{{ getGreeting() }}，{{ userNickname }}</text>
+          <text class="home__greet">{{ getGreeting() }}</text>
           <text class="home__sub">已接入 {{ devices.length }} 台设备 · {{ onlineCount }} 台在线</text>
         </view>
         <view class="home__actions">
@@ -167,12 +165,21 @@ async function confirmUnbind() {
       </view>
     </view>
 
-    <!-- 筛选占位 -->
+    <!-- 筛选：全部 / 在线 / 按摆放位置（本地 device-meta 动态生成） -->
     <scroll-view scroll-x class="home__pills" :show-scrollbar="false">
-      <view class="home__pill home__pill--active">全部设备 ({{ devices.length }})</view>
-      <view class="home__pill">常用设备</view>
-      <view class="home__pill">客厅</view>
-      <view class="home__pill">卧室</view>
+      <view class="home__pill" :class="{ 'home__pill--active': activeFilter === 'all' }" @tap="activeFilter = 'all'">
+        全部设备 ({{ devices.length }})
+      </view>
+      <view class="home__pill" :class="{ 'home__pill--active': activeFilter === 'online' }" @tap="activeFilter = 'online'">
+        在线 ({{ onlineCount }})
+      </view>
+      <view
+        v-for="loc in locationTags"
+        :key="loc"
+        class="home__pill"
+        :class="{ 'home__pill--active': activeFilter === loc }"
+        @tap="activeFilter = loc"
+      >{{ loc }}</view>
     </scroll-view>
 
     <!-- 设备宫格 / 空态 -->
@@ -188,13 +195,16 @@ async function confirmUnbind() {
     </view>
 
     <view v-else class="home__grid">
-      <DeviceCard
-        v-for="d in devices"
-        :key="d.device_id"
-        :device="d"
-        @click="onCardClick(d)"
-        @longpress="onCardLongPress(d)"
-      />
+      <template v-if="filteredDevices.length">
+        <DeviceCard
+          v-for="d in filteredDevices"
+          :key="d.device_id"
+          :device="d"
+          @click="onCardClick(d)"
+          @longpress="onCardLongPress(d)"
+        />
+      </template>
+      <view v-else class="home__filter-empty">该筛选下暂无设备</view>
       <view class="home__add-tile" @tap="goAdd">
         <view class="home__add-circle">
           <ZIcon name="plus" :size="40" color="#64748b" :stroke-width="4.2" />
@@ -210,7 +220,7 @@ async function confirmUnbind() {
       <view class="sheet__panel" @tap.stop>
         <view class="sheet__head">
           <view>
-            <text class="sheet__title">{{ actionDevice.alias?.trim() || actionDevice.name }}</text>
+            <text class="sheet__title">{{ deviceDisplayName(actionDevice) }}</text>
             <text class="sheet__sub">{{ actionDevice.product_name }} · {{ actionDevice.device_id }}</text>
           </view>
           <view class="sheet__close" @tap="showActionSheet = false">
@@ -287,7 +297,7 @@ async function confirmUnbind() {
         </view>
         <text class="unbind__title">确认解除绑定？</text>
         <text class="unbind__desc">
-          您即将解除设备「{{ actionDevice?.alias?.trim() || actionDevice?.name }}」的关联。
+          您即将解除设备「{{ actionDevice ? deviceDisplayName(actionDevice) : '' }}」的关联。
           解绑后您将无法在当前账号控制该设备，此操作不会影响其他已绑定该设备的家庭成员。
         </text>
         <view class="modal__btns">
@@ -309,6 +319,7 @@ async function confirmUnbind() {
 <style scoped lang="scss">
 .home {
   min-height: 100vh;
+  overflow-x: hidden;
   padding-bottom: calc(env(safe-area-inset-bottom, 0) + 200rpx);
 
   &__header {
@@ -319,42 +330,6 @@ async function confirmUnbind() {
     backdrop-filter: blur(12px);
     padding: calc(var(--status-bar-height, 44px) + 16rpx) 32rpx 20rpx;
     border-bottom: 1rpx solid $border-1;
-  }
-
-  &__status-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 18rpx;
-  }
-
-  &__sse {
-    display: flex;
-    align-items: center;
-    gap: 8rpx;
-    font-size: 18rpx;
-    color: $text-3;
-
-    &--on {
-      color: $online;
-    }
-  }
-
-  &__sse-dot {
-    width: 10rpx;
-    height: 10rpx;
-    border-radius: 50%;
-    background: $warning;
-
-    .home__sse--on & {
-      background: $online;
-    }
-  }
-
-  &__status-icons {
-    display: flex;
-    align-items: center;
-    gap: 12rpx;
   }
 
   &__greet-row {
@@ -435,9 +410,17 @@ async function confirmUnbind() {
 
   &__grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 24rpx;
     padding: 16rpx 32rpx;
+  }
+
+  &__filter-empty {
+    grid-column: 1 / -1;
+    padding: 72rpx 0;
+    text-align: center;
+    font-size: 24rpx;
+    color: $text-3;
   }
 
   &__empty {

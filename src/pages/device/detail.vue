@@ -2,8 +2,9 @@
 import { ref, computed } from 'vue'
 import { onLoad, onShow, onHide , onReady } from '@dcloudio/uni-app'
 import { getDevice, getDeviceShadow, sendCommandSync } from '@/api/device'
+import { deviceDisplayName } from '@/utils/device-meta'
 import type { Device, ControlItem } from '@/types'
-import { getPanel } from '@/data/product-panels'
+import { getPanel, COMMON_CONTROLS, REFRESH_SHADOW_SERVICE } from '@/data/product-panels'
 import { useToast } from '@/composables/useToast'
 import { useDeviceEvents, requireAuth } from '@/composables/useDeviceEvents'
 import NavBar from '@/components/NavBar.vue'
@@ -19,13 +20,15 @@ const loadingIds = ref<Record<string, boolean>>({})
 const confirmItem = ref<ControlItem | null>(null)
 
 const panel = computed(() => getPanel(device.value?.product_key || device.value?.product_id || ''))
+/** 产品面板指令 + 通用默认指令（开关机、查询） */
+const allControls = computed(() => [...panel.value.controls, ...COMMON_CONTROLS])
 
 /** 安全读取当前控件的 shadow 值 */
 function getReported(control: ControlItem): any {
   return control.prop ? (device.value?.shadow_reported?.[control.prop] ?? undefined) : undefined
 }
 const isOnline = computed(() => device.value?.online_status === 'online')
-const displayName = computed(() => device.value?.alias?.trim() || device.value?.name || '设备')
+const displayName = computed(() => (device.value ? deviceDisplayName(device.value) : '设备'))
 
 function goSettings() {
   uni.navigateTo({ url: `/pages/device/settings?id=${deviceId.value}` })
@@ -90,6 +93,11 @@ function confirmAction() {
 }
 
 function onActionClick(control: ControlItem) {
+  // 查询状态为本地刷新，不下发指令、不要求设备在线
+  if (control.service === REFRESH_SHADOW_SERVICE) {
+    handleSyncShadow(control)
+    return
+  }
   if (!isOnline.value) {
     showToast('设备离线，无法执行服务指令', 'error')
     return
@@ -98,6 +106,19 @@ function onActionClick(control: ControlItem) {
     confirmItem.value = control
   } else {
     handleControl(control, true)
+  }
+}
+
+/** 本地拉取云端影子，同步设备最新上报状态 */
+async function handleSyncShadow(control: ControlItem) {
+  try {
+    loadingIds.value = { ...loadingIds.value, [control.id]: true }
+    await refresh()
+    showToast('已同步设备最新状态', 'success')
+  } catch (err) {
+    showToast((err as Error)?.message || '同步状态失败', 'error')
+  } finally {
+    loadingIds.value = { ...loadingIds.value, [control.id]: false }
   }
 }
 
@@ -180,9 +201,9 @@ function statValue(prop: string): string {
         </view>
       </view>
 
-      <!-- 控制面板（模板驱动） -->
+      <!-- 控制面板（模板驱动：产品指令 + 通用默认指令） -->
       <view class="detail__controls" :class="{ 'detail__controls--off': !isOnline }">
-        <view v-for="control in panel.controls" :key="control.id">
+        <view v-for="control in allControls" :key="control.id">
           <!-- ① switch -->
           <view v-if="control.type === 'switch'" class="zi-card ctrl">
             <view class="ctrl__text">
@@ -253,7 +274,7 @@ function statValue(prop: string): string {
           <view v-else-if="control.type === 'action'" class="zi-card ctrl">
             <view class="ctrl__text">
               <text class="ctrl__label">{{ control.label }}</text>
-              <text class="ctrl__desc">下发物模型服务调用指令</text>
+              <text class="ctrl__desc">{{ control.desc || '下发物模型服务调用指令' }}</text>
             </view>
             <view class="ctrl__action-btn" @tap="onActionClick(control)">
               <view v-if="loadingIds[control.id]" class="zi-spin zi-spin--brand ctrl__action-spin" />

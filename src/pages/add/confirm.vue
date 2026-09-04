@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { bindDevice } from '@/api/device'
-import type { DeviceCategory } from '@/types'
+import { bindDevice, maskBindingCode } from '@/api/device'
+import { setDeviceMeta } from '@/utils/device-meta'
 import { useToast } from '@/composables/useToast'
 import NavBar from '@/components/NavBar.vue'
 import ZIcon from '@/components/ZIcon.vue'
@@ -11,35 +11,29 @@ const { show: showToast } = useToast()
 
 const code = ref('')
 const loading = ref(false)
-const preview = ref<{ name: string; product_name: string; product_id: string; category: DeviceCategory; masked_code: string } | null>(null)
+const maskedCode = ref('')
 
-const CATEGORY_ICON: Record<string, string> = {
-  sensor: 'thermometer',
-  light: 'lightbulb',
-  socket: 'plug',
-  ac: 'wind',
-  curtain: 'curtain',
-  other: 'cpu',
-}
+/** 用户自定义名称 / 摆放位置（仅存本机，不上云） */
+const deviceName = ref('')
+const location = ref('')
+const LOCATIONS = ['客厅', '卧室', '厨房', '餐厅', '阳台', '书房', '玄关', '卫生间']
 
 onLoad((options) => {
   code.value = decodeURIComponent(options?.code || '')
-  loadPreview()
-})
-
-async function loadPreview() {
-  try {
-    preview.value = { name: '?????', product_name: '?????????', product_id: '', category: 'other', masked_code: code.value }
-  } catch (err) {
-    showToast((err as Error)?.message || '无法获取设备信息', 'error')
+  if (code.value.length < 8) {
+    showToast('缺少有效的绑定码，请重新扫码', 'error')
     setTimeout(() => uni.navigateBack(), 600)
+    return
   }
-}
+  // 后端无绑定预览接口：绑定前仅展示本地可信信息，产品型号由 bind 响应在绑定后返回
+  maskedCode.value = maskBindingCode(code.value)
+})
 
 async function handleConfirmBind() {
   try {
     loading.value = true
     const device = await bindDevice(code.value)
+    setDeviceMeta(device.device_id, { name: deviceName.value, location: location.value })
     showToast('设备绑定成功！', 'success')
     setTimeout(() => {
       uni.redirectTo({ url: `/pages/device/detail?id=${device.device_id}` })
@@ -60,15 +54,47 @@ async function handleConfirmBind() {
       <!-- 设备信息卡 -->
       <view class="zi-card confirm__card">
         <view class="confirm__icon">
-          <ZIcon :name="CATEGORY_ICON[preview?.category || 'other']" :size="76" color="#2F6BFF" :stroke-width="3.4" />
+          <ZIcon name="cpu" :size="76" color="#2F6BFF" :stroke-width="3.4" />
         </view>
-        <text class="confirm__name">{{ preview?.name || '未知设备' }}</text>
-        <text class="confirm__product">
-          产品型号：{{ preview?.product_name || '—' }} ({{ preview?.product_id || '—' }})
-        </text>
+        <text class="confirm__name">ZIOT 智能设备</text>
+        <text class="confirm__product">产品型号与名称将在绑定完成后自动识别</text>
         <view class="confirm__code-chip">
           <ZIcon name="qrcode" :size="26" color="#94a3b8" />
-          <text>绑定码：{{ preview?.masked_code || '••••••••' }}</text>
+          <text>绑定码：{{ maskedCode }}</text>
+        </view>
+      </view>
+
+      <!-- 自定义名称与位置（本地存储） -->
+      <view class="zi-card confirm__form">
+        <view class="confirm__field">
+          <text class="confirm__field-label">设备名称</text>
+          <input
+            v-model="deviceName"
+            class="confirm__input"
+            placeholder="给设备起个名字，如：客厅空气管家"
+            placeholder-class="confirm__placeholder"
+            :maxlength="20"
+          />
+          <text class="confirm__field-hint">不填则使用设备默认名称，仅保存在本机</text>
+        </view>
+        <view class="confirm__field">
+          <text class="confirm__field-label">摆放位置</text>
+          <view class="confirm__locs">
+            <text
+              v-for="loc in LOCATIONS"
+              :key="loc"
+              class="confirm__loc"
+              :class="{ 'confirm__loc--on': location === loc }"
+              @tap="location = loc"
+            >{{ loc }}</text>
+          </view>
+          <input
+            v-model="location"
+            class="confirm__input"
+            placeholder="点选上方位置，或自定义输入（如：阳台东侧）"
+            placeholder-class="confirm__placeholder"
+            :maxlength="12"
+          />
         </view>
       </view>
 
@@ -86,7 +112,7 @@ async function handleConfirmBind() {
       </view>
 
       <!-- 确认按钮 -->
-      <button class="confirm__submit zi-btn-primary" :disabled="loading || !preview" @tap="handleConfirmBind">
+      <button class="confirm__submit zi-btn-primary" :disabled="loading || !maskedCode" @tap="handleConfirmBind">
         <view v-if="loading" class="zi-spin" />
         <ZIcon v-else name="check-circle" :size="32" color="#ffffff" />
         <text>{{ loading ? '正在下发证书与建立连接...' : '确认绑定并进入控制' }}</text>
@@ -149,6 +175,68 @@ async function handleConfirmBind() {
     font-size: 22rpx;
     font-family: monospace;
     color: $text-2;
+  }
+
+  &__form {
+    padding: 36rpx 32rpx;
+    display: flex;
+    flex-direction: column;
+    gap: 30rpx;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 14rpx;
+  }
+
+  &__field-label {
+    font-size: 24rpx;
+    font-weight: 600;
+    color: $text-1;
+  }
+
+  &__field-hint {
+    font-size: 18rpx;
+    color: $text-3;
+  }
+
+  &__input {
+    width: 100%;
+    height: 84rpx;
+    padding: 0 24rpx;
+    border-radius: $radius-btn;
+    border: 1rpx solid $border-2;
+    font-size: 26rpx;
+    color: $text-1;
+    box-sizing: border-box;
+  }
+
+  &__placeholder {
+    color: $text-3;
+  }
+
+  &__locs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14rpx;
+  }
+
+  &__loc {
+    padding: 10rpx 26rpx;
+    border-radius: 999rpx;
+    font-size: 22rpx;
+    color: $text-2;
+    background: $bg-page;
+    border: 1rpx solid $border-1;
+    transition: all 0.15s ease;
+
+    &--on {
+      color: $brand;
+      border-color: $brand;
+      background: $brand-50;
+      font-weight: 600;
+    }
   }
 
   &__share {

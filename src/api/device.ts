@@ -26,3 +26,8 @@ export function parseBindingCode(raw: string): string {
   const index = value.indexOf('#')
   return (index >= 0 ? value.slice(index + 1) : value).replace(/-/g, '').toUpperCase()
 }
+
+/** 掩码展示绑定码：保留首尾各 4 位 */
+export function maskBindingCode(code: string): string {
+  return code.length >= 8 ? `${code.slice(0, 4)}••••••••${code.slice(-4)}` : `${code.slice(0, 2)}••••${code.slice(-2)}`
+}

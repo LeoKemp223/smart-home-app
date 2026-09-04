@@ -50,6 +50,7 @@ export interface ControlItem {
   prop?: string
   service?: string
   label: string
+  desc?: string
   unit?: string
   min?: number
   max?: number

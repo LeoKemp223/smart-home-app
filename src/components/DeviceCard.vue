@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { Device } from '@/types'
 import { getPanel } from '@/data/product-panels'
+import { deviceDisplayName, getDeviceMeta } from '@/utils/device-meta'
 import ZIcon from './ZIcon.vue'
 
 const props = defineProps<{ device: Device }>()
@@ -27,7 +28,8 @@ function onTap() {
 
 const panel = computed(() => getPanel(props.device.product_key || props.device.product_id))
 const isOnline = computed(() => props.device.online_status === 'online')
-const displayName = computed(() => props.device.alias?.trim() || props.device.name)
+const displayName = computed(() => deviceDisplayName(props.device))
+const location = computed(() => getDeviceMeta(props.device.device_id)?.location || '')
 const isDisabled = computed(() => props.device.status === 'disabled')
 
 /** 按产品面板主属性生成摘要 */
@@ -35,9 +37,7 @@ const summary = computed(() => {
   const rep = props.device.shadow_reported || {}
   switch (props.device.category) {
     case 'sensor':
-      return typeof rep.temperature === 'number'
-        ? `${rep.temperature.toFixed(1)}°C · ${Math.round(rep.humidity ?? 0)}%`
-        : '暂无温湿上报'
+      return isOnline.value ? '运行正常' : '未连接'
     case 'light':
       return rep.power ? `已开启 · ${rep.brightness ?? 100}%` : '已关闭'
     case 'socket':
@@ -80,7 +80,10 @@ const statusLabel = computed(() =>
     </view>
 
     <view class="dcard__bottom">
-      <text class="dcard__name zi-ellipsis">{{ displayName }}</text>
+      <view class="dcard__title">
+        <text class="dcard__name zi-ellipsis">{{ displayName }}</text>
+        <text v-if="location" class="dcard__loc">{{ location }}</text>
+      </view>
       <text class="dcard__summary zi-ellipsis">{{ summary }}</text>
     </view>
   </view>
@@ -88,7 +91,9 @@ const statusLabel = computed(() =>
 
 <style scoped lang="scss">
 .dcard {
-  min-height: 268rpx;
+  height: 268rpx;
+  min-width: 0;
+  overflow: hidden;
   padding: 28rpx;
   border-radius: $radius-card;
   background: $bg-card;
@@ -158,11 +163,33 @@ const statusLabel = computed(() =>
     color: $text-2;
   }
 
-  &__name {
+  &__title {
     margin-top: 20rpx;
+    display: flex;
+    align-items: center;
+    gap: 10rpx;
+    min-width: 0;
+  }
+
+  &__name {
+    flex: 1;
+    min-width: 0;
     font-size: 28rpx;
     font-weight: 600;
     color: $text-1;
+  }
+
+  &__loc {
+    flex: none;
+    max-width: 160rpx;
+    padding: 4rpx 14rpx;
+    border-radius: 999rpx;
+    font-size: 18rpx;
+    color: $brand;
+    background: rgba(47, 107, 255, 0.08);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   &--offline &__name {
@@ -170,6 +197,7 @@ const statusLabel = computed(() =>
   }
 
   &__summary {
+    display: block;
     margin-top: 6rpx;
     font-size: 24rpx;
     color: $text-2;

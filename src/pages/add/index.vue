@@ -10,14 +10,6 @@ const { show: showToast } = useToast()
 
 const activeMode = ref<'scan' | 'manual'>('scan')
 const manualCode = ref('')
-const isScanning = ref(false)
-
-// 快速模拟扫码（预设测试码，与参考实现一致）
-const PRESET_CODES = [
-  { label: '阳台空气检测仪', code: 'BD7K-9X2M-4PLQ-8HZW' },
-  { label: '玄关感应夜灯', code: 'WF3D-8R2L-9KPM-1XTY' },
-  { label: '智能厨房排插', code: 'GT6P-4N8Q-2VKX-9RTY' },
-]
 
 requireAuth()
 
@@ -61,14 +53,6 @@ function startScan() {
   })
   // #endif
 }
-
-function simulateScan(code: string) {
-  isScanning.value = true
-  setTimeout(() => {
-    isScanning.value = false
-    processAndSubmitCode(code)
-  }, 700)
-}
 </script>
 
 <template>
@@ -104,10 +88,6 @@ function simulateScan(code: string) {
             <text class="viewfinder__sub">自动识别 ziot.asia 专属安全绑定码</text>
           </view>
 
-          <view v-if="isScanning" class="viewfinder__loading">
-            <view class="zi-spin zi-spin--brand" />
-            <text>正在解析设备证书与签名...</text>
-          </view>
         </view>
 
         <button class="add__scan-btn zi-btn-primary" @tap="startScan">
@@ -115,29 +95,6 @@ function simulateScan(code: string) {
           <text>开始扫码</text>
         </button>
 
-        <!-- 模拟扫码（联调测试） -->
-        <view class="zi-card add__preset">
-          <view class="add__preset-head">
-            <ZIcon name="sparkles" :size="26" color="#FF8F1F" />
-            <text class="add__preset-title">快速模拟扫描测试设备二维码</text>
-            <text class="add__preset-sub">一键扫码测试</text>
-          </view>
-          <view
-            v-for="item in PRESET_CODES"
-            :key="item.code"
-            class="add__preset-item"
-            @tap="simulateScan(item.code)"
-          >
-            <view class="add__preset-info">
-              <text class="add__preset-label">{{ item.label }}</text>
-              <text class="add__preset-code">{{ item.code }}</text>
-            </view>
-            <view class="add__preset-go">
-              <text>模拟扫码</text>
-              <ZIcon name="chevron-right" :size="24" color="#2F6BFF" />
-            </view>
-          </view>
-        </view>
       </view>
 
       <!-- 手动输码模式 -->
@@ -178,9 +135,13 @@ function simulateScan(code: string) {
 <style scoped lang="scss">
 .add {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   padding-bottom: calc(env(safe-area-inset-bottom, 0) + 200rpx);
 
   &__body {
+    /* 剩余模块垂直居中；内容超高时 auto 边距退化为 0，不会裁切 */
+    margin: auto 0;
     padding: 32rpx;
     display: flex;
     flex-direction: column;
@@ -215,6 +176,12 @@ function simulateScan(code: string) {
     }
   }
 
+  &__scan {
+    display: flex;
+    flex-direction: column;
+    gap: 32rpx;
+  }
+
   &__scan-btn {
     display: flex;
     align-items: center;
@@ -222,72 +189,6 @@ function simulateScan(code: string) {
     gap: 12rpx;
     height: 92rpx;
     font-size: 28rpx;
-  }
-
-  &__preset {
-    padding: 28rpx;
-    display: flex;
-    flex-direction: column;
-    gap: 12rpx;
-  }
-
-  &__preset-head {
-    display: flex;
-    align-items: center;
-    gap: 10rpx;
-  }
-
-  &__preset-title {
-    flex: 1;
-    font-size: 24rpx;
-    font-weight: 600;
-    color: $text-1;
-  }
-
-  &__preset-sub {
-    font-size: 18rpx;
-    color: $text-3;
-  }
-
-  &__preset-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20rpx;
-    border-radius: $radius-btn;
-    background: $bg-page;
-    border: 1rpx solid $border-1;
-
-    &:active {
-      background: $brand-50;
-    }
-  }
-
-  &__preset-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4rpx;
-  }
-
-  &__preset-label {
-    font-size: 24rpx;
-    font-weight: 500;
-    color: $text-1;
-  }
-
-  &__preset-code {
-    font-size: 18rpx;
-    color: $text-3;
-    font-family: monospace;
-  }
-
-  &__preset-go {
-    display: flex;
-    align-items: center;
-    gap: 4rpx;
-    font-size: 22rpx;
-    color: $brand;
-    font-weight: 500;
   }
 
   &__manual {
@@ -446,22 +347,6 @@ function simulateScan(code: string) {
     font-size: 20rpx;
     color: #64748b;
   }
-
-  &__loading {
-    position: absolute;
-    inset: 0;
-    background: rgba(2, 6, 23, 0.82);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 20rpx;
-
-    text {
-      font-size: 22rpx;
-      color: #fff;
-    }
-  }
 }
 
 @keyframes laser-pulse {
@@ -490,13 +375,11 @@ function simulateScan(code: string) {
   transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
 }
 
-.add__preset,
 .add__manual,
 .add__notice {
   box-shadow: $shadow-card;
 }
 
-.add__preset-item:active,
 .add__mode:active {
   transform: scale(0.99);
 }

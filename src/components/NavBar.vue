@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import ZIcon from './ZIcon.vue'
+import { statusBarStyle } from '@/utils/status-bar'
+
+const sbStyle = statusBarStyle()
 
 withDefaults(
   defineProps<{
@@ -22,7 +25,7 @@ function handleBack() {
 </script>
 
 <template>
-  <view class="navbar" :class="{ 'navbar--transparent': transparent }">
+  <view class="navbar" :class="{ 'navbar--transparent': transparent }" :style="sbStyle">
     <view class="navbar__main">
       <view class="navbar__side">
         <view v-if="showBack" class="navbar__back" @tap="handleBack">

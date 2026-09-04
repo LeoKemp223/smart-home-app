@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getDevice, updateDeviceAlias, unbindDevice } from '@/api/device'
+import { removeDeviceMeta } from '@/utils/device-meta'
 import type { Device } from '@/types'
 import { useToast } from '@/composables/useToast'
 import { requireAuth } from '@/composables/useDeviceEvents'
@@ -61,6 +62,7 @@ async function confirmUnbind() {
   try {
     unbindLoading.value = true
     await unbindDevice(deviceId.value)
+    removeDeviceMeta(deviceId.value)
     showToast('设备已成功解除绑定', 'success')
     showUnbindModal.value = false
     setTimeout(() => uni.reLaunch({ url: '/pages/home/index' }), 500)

@@ -3,7 +3,17 @@
  * 按 product_key/product_id 索引；identifier 对齐固件物模型。
  * 兜底：DEFAULT_PANEL（未知产品不白屏）。
  */
-import type { ProductPanel } from '@/types'
+import type { ControlItem, ProductPanel } from '@/types'
+
+/** 保留服务名：不下发到设备，由 App 本地拉取云端影子（查询状态用） */
+export const REFRESH_SHADOW_SERVICE = 'refresh_shadow'
+
+/** 所有设备控制面板统一追加的通用默认指令（服务 identifier 需固件物模型支持） */
+export const COMMON_CONTROLS: ControlItem[] = [
+  { id: 'c_common_power_on', type: 'action', service: 'power_on', label: '开机', desc: '下发开机服务指令' },
+  { id: 'c_common_power_off', type: 'action', service: 'power_off', label: '关机', desc: '下发关机服务指令', confirm: '确认关闭该设备？' },
+  { id: 'c_common_sync', type: 'action', service: REFRESH_SHADOW_SERVICE, label: '同步设备状态', desc: '从云端拉取设备最新上报状态' },
+]
 
 export const PRODUCT_PANELS: Record<string, ProductPanel> = {
   pk_sensor_th01: {

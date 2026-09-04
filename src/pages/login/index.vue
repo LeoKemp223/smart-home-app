@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { login, register } from '@/api/auth'
 import { useToast } from '@/composables/useToast'
 import ZIcon from '@/components/ZIcon.vue'
+import ZLogo from '@/components/ZLogo.vue'
 
 const { show: showToast } = useToast()
 
@@ -13,6 +14,11 @@ const nickname = ref('')
 const showPassword = ref(false)
 const agreeTerms = ref(true)
 const loading = ref(false)
+
+/** 查看协议/隐私政策（阻止冒泡，避免误触勾选框） */
+function openLegal(type: 'agreement' | 'privacy') {
+  uni.navigateTo({ url: `/pages/legal/document?type=${type}` })
+}
 
 async function handleSubmit() {
   if (!agreeTerms.value) {
@@ -50,7 +56,7 @@ async function handleSubmit() {
   <view class="login">
     <view class="login__brand">
       <view class="login__logo">
-        <ZIcon name="shield" :size="72" color="#ffffff" :stroke-width="3.6" />
+        <ZLogo :size="176" />
       </view>
       <text class="login__title">ZIOT 智慧生活</text>
       <text class="login__slogan">物联感知 · 秒级触达 · 极简全屋智能</text>
@@ -125,9 +131,9 @@ async function handleSubmit() {
           <ZIcon v-if="agreeTerms" name="check" :size="22" color="#ffffff" :stroke-width="6" />
         </view>
         <text class="login__agree-text">已阅读并同意</text>
-        <text class="login__agree-link">《用户服务协议》</text>
+        <text class="login__agree-link" @tap.stop="openLegal('agreement')">《用户服务协议》</text>
         <text class="login__agree-text">与</text>
-        <text class="login__agree-link">《隐私合规政策》</text>
+        <text class="login__agree-link" @tap.stop="openLegal('privacy')">《隐私合规政策》</text>
       </view>
 
       <!-- 提交 -->
@@ -161,14 +167,6 @@ async function handleSubmit() {
   }
 
   &__logo {
-    width: 128rpx;
-    height: 128rpx;
-    border-radius: 36rpx;
-    background: linear-gradient(135deg, #2f6bff, #60a5fa);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 16rpx 40rpx rgba(47, 107, 255, 0.3);
     margin-bottom: 28rpx;
   }
 
