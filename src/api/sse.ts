@@ -11,6 +11,10 @@ let lastEventAt = 0
 let watchdog: ReturnType<typeof setInterval> | null = null
 let running = false
 
+function supportsStreamingSSE() {
+  return typeof fetch !== 'undefined' && typeof AbortController !== 'undefined' && typeof TextDecoder !== 'undefined'
+}
+
 export function subscribeSSE(listener: Listener) { listeners.add(listener); return () => listeners.delete(listener) }
 function emit(event: SSEEvent) { lastEventAt = Date.now(); listeners.forEach((listener) => { try { listener(event) } catch (error) { console.error(error) } }) }
 function parseFrame(frame: string) {
@@ -51,7 +55,7 @@ async function connect() {
   }
 }
 export function startSSE() {
-  if (running) return
+  if (running || !supportsStreamingSSE()) return
   running = true; lastEventAt = Date.now(); connect()
   watchdog = setInterval(() => { if (running && Date.now() - lastEventAt >= 60000) { controller?.abort(); lastEventAt = Date.now() } }, 5000)
 }
