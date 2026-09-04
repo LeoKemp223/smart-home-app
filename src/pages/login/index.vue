@@ -8,8 +8,8 @@ import ZLogo from '@/components/ZLogo.vue'
 const { show: showToast } = useToast()
 
 const isRegister = ref(false)
-const phone = ref('13800138000')
-const password = ref('ziot123456')
+const phone = ref('')
+const password = ref('')
 const nickname = ref('')
 const showPassword = ref(false)
 const agreeTerms = ref(true)
@@ -84,8 +84,6 @@ async function handleSubmit() {
             v-model="phone"
             type="number"
             :maxlength="11"
-            placeholder="请输入11位大陆手机号"
-            placeholder-class="field__placeholder"
             class="field__input"
           />
         </view>
@@ -100,8 +98,6 @@ async function handleSubmit() {
             v-model="nickname"
             type="nickname"
             :maxlength="20"
-            placeholder="如：客厅小主"
-            placeholder-class="field__placeholder"
             class="field__input"
           />
         </view>
@@ -115,8 +111,6 @@ async function handleSubmit() {
           <input
             v-model="password"
             :password="!showPassword"
-            placeholder="请输入登录密码"
-            placeholder-class="field__placeholder"
             class="field__input"
           />
           <view class="field__eye" @tap="showPassword = !showPassword">
