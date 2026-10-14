@@ -1,37 +1,171 @@
-# Smart Home App
+# ZIOT 智慧生活（Smart Home App）
 
-uni-app + Vue 3 + TypeScript project created with the CLI workflow.
+这是一个面向用户的智能家居应用前端，使用 **uni-app + Vue 3 + TypeScript** 开发，主要支持微信小程序和 H5 网页。
 
-## Install
+应用连接 ZIOT 云平台，让用户通过手机绑定设备、查看设备状态并下发控制指令。本仓库不包含后端服务或设备固件；真实设备控制需要云平台正常运行，设备已联网，并且固件支持对应的指令。
+
+## 一、工程能做什么
+
+- **账号管理**：手机号与密码注册、登录、修改密码、退出登录。当前不是短信验证码登录，也不是微信手机号一键登录。
+- **添加设备**：扫码绑定，或手动输入绑定码、粘贴二维码链接。支持 ZIOT 域名及 `localhost`、`127.0.0.1` 的 `/b/#绑定码` 链接。
+- **设备管理**：查看设备列表、在线状态、设备信息，修改设备别名、设置本地摆放位置、解绑设备。
+- **状态与控制**：查看设备上报的数据，根据产品面板下发属性设置或服务指令。控制项需与云平台及固件的物模型保持一致。
+- **状态更新**：在支持流式请求的环境中使用 SSE，页面同时提供轮询兜底；微信小程序主要通过轮询更新状态。
+- **协议页面**：提供用户服务协议和隐私政策。正式发布前需核实其中的运营主体、联系方式和数据处理说明。
+
+当前页面默认连接真实后端。`src/api/mock/` 保留了模拟接口代码，但没有默认启用，不是免登录体验模式。
+
+## 二、开发前准备
+
+需要安装：
+
+- Node.js：建议使用 22 或 24 LTS 版本，并使用随附的 npm。
+- 微信开发者工具：开发、真机调试及上传微信小程序时使用。
+- 浏览器：开发和查看 H5 时使用。
+
+在工程根目录（包含 `package.json` 的目录）打开终端，安装依赖：
 
 ```bash
-npm install
+npm ci
 ```
 
-## Development
+仓库已包含 `package-lock.json`，首次安装或重新安装建议使用 `npm ci`，以保持依赖版本一致。如果需要主动调整依赖，再使用 `npm install` 并检查锁文件变化。
+
+### 配置后端地址
+
+默认 API 地址为 `https://www.ziot.asia`，配置入口位于 `src/api/request.ts`。
+
+需要连接其他后端时，在工程根目录创建 `.env.local`：
+
+```dotenv
+VITE_ZIOT_API_BASE_URL=https://your-api.example.com
+```
+
+填写后端的基础地址，不要附加 `/api/v1/app`。开发与生产环境需使用不同地址时，可分别创建 `.env.development.local` 和 `.env.production.local`。
+
+修改环境变量后，需要重启开发服务或重新构建。变量会写入前端产物，不要在其中保存密码、访问令牌或其他秘密。
+
+## 三、本地运行与查看
+
+### H5 网页
 
 ```bash
 npm run dev:h5
+```
+
+保持终端运行，打开终端输出的本地访问地址即可。端口以实际输出为准，不要直接双击 `index.html`。
+
+H5 当前不支持摄像头扫码，请在“添加”页面切换到“手动输码”，输入绑定码或粘贴完整二维码链接。浏览器跨域访问后端时，后端需要允许该网页来源、请求方法及 `Authorization` 等请求头；仅修改前端 API 地址不能解决 CORS 问题。
+
+### 微信小程序
+
+```bash
 npm run dev:mp-weixin
 ```
 
-The WeChat Mini Program output is generated in `dist/dev/mp-weixin`. Open that
-directory with WeChat DevTools.
+1. 等待首次编译完成，开发产物位于 `dist/dev/mp-weixin`。
+2. 打开微信开发者工具，导入 **`dist/dev/mp-weixin`**，不要导入工程源码根目录。
+3. 当前配置的 AppID 为 `wx128ca194e037a617`。使用其他小程序账号时，先修改 `src/manifest.json` 中的 `mp-weixin.appid`，再重新编译。
+4. 保持上述命令运行，修改源码后会自动重新编译。
+5. 在开发者工具中编译、预览，或开启真机调试。
 
-## Build
+**微信开发者工具的“编译”只处理已经生成的小程序文件，不会把本仓库的 `.vue` 源码编译成小程序。** 修改源码后，必须先运行本工程的开发或构建命令。
 
-```bash
-npm run build:h5
-npm run build:mp-weixin
-npm run build:app
-```
+真机日志在独立“真机调试”窗口的 **Console** 中查看，请求和响应在 **Network** 中查看。主窗口 Console 通常是模拟器日志。开发包可搜索“扫码绑定”查看扫码解析结果，绑定码已脱敏；正式包不输出这些开发日志。
 
-## Checks
+## 四、编译与部署
+
+### 发布前检查
 
 ```bash
 npm run type-check
-npm run build
+npm run build:mp-weixin
+npm run build:h5
 ```
 
-Android packaging and iOS packaging still require the corresponding native
-toolchains. iOS packaging requires macOS and Xcode.
+类型检查与构建通过不代表真机功能或线上接口一定正常，还需要实际检查登录、设备绑定、状态显示及设备支持的控制操作。
+
+### 微信小程序上传、审核与发布
+
+```bash
+npm run build:mp-weixin
+```
+
+正式产物位于 **`dist/build/mp-weixin`**。上传时使用这个目录，不要使用调试目录 `dist/dev/mp-weixin`。
+
+1. 在微信开发者工具中导入 `dist/build/mp-weixin`，确认 AppID 和开发者权限正确。
+2. 编译并检查关键页面，点击右上角“上传”，填写版本号和版本说明。
+3. 登录[微信公众平台](https://mp.weixin.qq.com/)，在“版本管理”中找到上传的开发版本。
+4. 建议先设为体验版，使用手机测试登录、扫码、设备状态、复制设备 ID 和控制功能。
+5. 提交审核，填写功能说明、审核测试账号及测试步骤。可提供预先注册并绑定专用设备的账号，让审核人员无需使用个人手机号注册。
+6. 保持测试设备在审核期间在线。审核通过后，再在后台点击“发布”。上传成功不等于已经发布。
+
+提审前还需要确认：
+
+- **服务器域名**：默认后端对应的 request 合法域名为 `https://www.ziot.asia`；更换后端时同步更新微信后台配置。开发时“不校验合法域名”不能代替正式域名配置。
+- **隐私保护指引**：当前不能选择“未采集用户隐私”。应用处理手机号、昵称，并使用剪贴板复制设备 ID，需要如实声明用途。
+- **隐私接口**：注册页的 `input type="nickname"` 属于微信隐私组件；`uni.setClipboardData` 也在微信隐私接口清单中，即使代码只向剪贴板写入设备 ID，也需按平台要求声明。
+- **用户同意**：当前登录页协议默认勾选，正式发布前建议改为用户主动勾选。应用内普通勾选不等于微信隐私授权，需验证昵称与剪贴板功能的授权流程。
+- **账号资料**：按后台要求完善服务类目、备案、运营主体、联系方式和其他审核资料；应用内隐私政策不能替代微信后台的隐私保护指引。
+
+隐私声明与接口对应关系可参考[微信官方说明](https://developers.weixin.qq.com/miniprogram/dev/framework/user-privacy/miniprogram-intro.html)。不要为了避免报错而勾选未实际使用的定位、麦克风等信息。
+
+### H5 网页部署
+
+```bash
+npm run build:h5
+```
+
+网页产物位于 **`dist/build/h5`**。将该目录内的全部文件上传到 Nginx、其他静态网站服务或静态托管平台，通过 HTTP/HTTPS 访问，不要只上传 `index.html`。
+
+- 默认构建的资源路径以 `/` 开头，适合部署在域名根目录，例如 `https://your-web.example.com/`。
+- 如果需要部署在 `/smart-home/` 等子目录，先配置 `src/manifest.json` 中的 `h5.router.base` 为对应路径，并重新构建；不要直接把默认产物移动到子目录。
+- 正式环境建议使用 HTTPS，后端需要允许正式网页域名的跨域请求。如果使用 SSE，反向代理也需要支持长连接并避免缓冲事件响应。
+- 后端地址属于编译时配置，部署后修改 `.env` 不会改变已经生成的网页，必须重新构建和上传。
+
+### Android / iOS
+
+工程保留了 App 构建命令：
+
+```bash
+npm run build:app
+```
+
+这一步编译 App 资源，不会直接生成可安装的 APK 或 IPA。安装包还需要通过 uni-app 对应的打包流程配置应用标识、图标、权限、签名证书等。采用本地原生打包时，需要相应工具链；iOS 本地打包需要 macOS 和 Xcode。当前主要开发、验证和部署流程是微信小程序与 H5。
+
+## 五、常用命令
+
+| 命令 | 用途 | 输出或说明 |
+| --- | --- | --- |
+| `npm ci` | 按锁文件安装依赖 | 首次运行前执行 |
+| `npm run dev:h5` | 启动 H5 开发服务 | 浏览器访问终端输出的地址 |
+| `npm run dev:mp-weixin` | 编译并监听小程序源码 | `dist/dev/mp-weixin` |
+| `npm run type-check` | TypeScript / Vue 类型检查 | 不生成发布包 |
+| `npm run build:h5` | 编译正式 H5 | `dist/build/h5` |
+| `npm run build:mp-weixin` | 编译正式微信小程序 | `dist/build/mp-weixin` |
+| `npm run build:app` | 编译 App 资源 | 安装包需另外打包 |
+| `npm run about` | 查看工程及工具链信息 | 便于排查环境问题 |
+
+`npm run dev` 和 `npm run build` 的默认平台均为 H5，配置位于 `unh.config.ts`。建议优先使用带平台名称的命令，避免构建错平台。
+
+## 六、工程目录
+
+```text
+src/
+  api/                  后端请求、账号、设备与 SSE 接口
+  components/           通用组件与统一风格图标
+  composables/          页面复用逻辑
+  data/                 产品控制面板、协议与隐私政策
+  pages/                首页、添加设备、设备详情、我的等页面
+  static/               图标等静态资源
+  types/                TypeScript 类型定义
+  utils/                设备本地信息、状态栏等工具
+  manifest.json         平台配置与小程序 AppID
+  pages.json            页面路由与底部导航
+docs/                   接口接入与页面设计说明
+dist/                   自动生成的开发 / 正式产物，不提交到 Git
+```
+
+新增产品控制面板时，重点检查 `src/data/product-panels.ts`：按实际 `product_key` 或 `product_id` 配置面板，并对齐设备固件支持的属性、服务标识。界面显示了控制按钮，不代表设备一定支持该指令。
+
+进一步说明见 `docs/ziot-app-integration.md` 和 `docs/page-design.md`。
