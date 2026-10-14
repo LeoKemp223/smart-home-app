@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { onShow, onHide , onReady } from '@dcloudio/uni-app'
+import { onShow, onHide, onUnload } from '@dcloudio/uni-app'
 import { listDevices, updateDeviceAlias, unbindDevice } from '@/api/device'
+import { getTokens } from '@/api/session'
 import { deviceDisplayName, getDeviceMeta, removeDeviceMeta } from '@/utils/device-meta'
 import { statusBarStyle } from '@/utils/status-bar'
 import type { Device } from '@/types'
@@ -28,17 +29,40 @@ const unbindLoading = ref(false)
 const unreadCount = computed(() => 0) // 消息页维护，暂不做跨页未读
 
 const headerStyle = statusBarStyle()
+let pageVisible = false
+let pollTimer: ReturnType<typeof setInterval> | null = null
 
-async function loadDevices() {
-  devices.value = await listDevices()
+async function loadDevices(showError = false) {
+  if (!pageVisible || !getTokens()) return false
+  try {
+    const items = await listDevices()
+    if (!pageVisible || !getTokens()) return false
+    devices.value = items
+    return true
+  } catch (error) {
+    const message = (error as Error)?.message || '加载设备列表失败'
+    if (import.meta.env.DEV) console.warn('[设备列表] 加载失败', message)
+    if (showError && pageVisible && getTokens()) showToast(message, 'error')
+    return false
+  }
+}
+
+function stopPolling() {
+  pageVisible = false
+  if (pollTimer) clearInterval(pollTimer)
+  pollTimer = null
 }
 
 onShow(() => {
+  stopPolling()
   if (!requireAuth()) return
-  loadDevices()
+  pageVisible = true
+  void loadDevices(true)
+  pollTimer = setInterval(() => { void loadDevices() }, 8000)
 })
 
-onHide(() => {})
+onHide(stopPolling)
+onUnload(stopPolling)
 
 // SSE 增量刷新（页面不再展示连接状态指示）
 const { onEvent } = useDeviceEvents()
@@ -46,15 +70,6 @@ onEvent((event) => {
   if (event.type === 'device.shadow.updated' || event.type === 'device.status.changed') {
     loadDevices()
   }
-})
-
-// 轮询兜底 8s
-let pollTimer: ReturnType<typeof setInterval> | null = null
-onShow(() => {
-  pollTimer = setInterval(loadDevices, 8000)
-})
-onHide(() => {
-  if (pollTimer) clearInterval(pollTimer)
 })
 
 function getGreeting() {
@@ -87,11 +102,13 @@ const filteredDevices = computed(() => {
 })
 
 async function handleRefresh() {
+  if (isRefreshing.value) return
   isRefreshing.value = true
-  await new Promise((r) => setTimeout(r, 450))
-  loadDevices()
-  isRefreshing.value = false
-  showToast('设备状态已刷新', 'success')
+  try {
+    if (await loadDevices(true)) showToast('设备状态已刷新', 'success')
+  } finally {
+    isRefreshing.value = false
+  }
 }
 
 function onCardClick(d: Device) {

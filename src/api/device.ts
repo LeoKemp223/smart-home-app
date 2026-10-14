@@ -23,8 +23,11 @@ export const getCommand = (commandId: string) => request<AppCommand>(`/api/v1/ap
 
 export function parseBindingCode(raw: string): string {
   const value = raw.trim()
-  const index = value.indexOf('#')
-  return (index >= 0 ? value.slice(index + 1) : value).replace(/-/g, '').toUpperCase()
+  const link = /^https?:\/\/(?:www\.ziot\.asia|ziot\.asia|localhost|127\.0\.0\.1)(?::\d+)?\/b\/#([a-z0-9-]+)$/i.exec(value)
+  const candidate = link ? link[1] : value
+  if (!/^[a-z0-9-]+$/i.test(candidate)) return ''
+  const code = candidate.replace(/-/g, '').toUpperCase()
+  return code.length >= 8 ? code : ''
 }
 
 /** 掩码展示绑定码：保留首尾各 4 位 */

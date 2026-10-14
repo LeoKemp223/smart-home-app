@@ -26,7 +26,8 @@ export function clearSession() {
 }
 
 export function getTokens(): AuthTokens | null {
-  return getSession()?.tokens || null
+  const tokens = getSession()?.tokens
+  return typeof tokens?.access_token === 'string' && tokens.access_token.trim() ? tokens : null
 }
 
 export function getUser(): User | null {

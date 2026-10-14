@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { parseBindingCode } from '@/api/device'
+import { maskBindingCode, parseBindingCode } from '@/api/device'
 import { useToast } from '@/composables/useToast'
 import { requireAuth } from '@/composables/useDeviceEvents'
 import NavBar from '@/components/NavBar.vue'
@@ -20,13 +20,17 @@ function processAndSubmitCode(raw: string) {
     showToast('请输入有效的绑定码', 'error')
     return
   }
-  if (/^https?:\/\//i.test(trimmed) && !trimmed.includes('ziot.asia/b/')) {
-    showToast('不是有效的 ZIOT 设备码', 'error')
-    return
-  }
   const clean = parseBindingCode(trimmed)
-  if (clean.length < 8) {
-    showToast('绑定码格式错误，请重新确认', 'error')
+  if (import.meta.env.DEV) {
+    console.info('[扫码绑定] 解析结果', {
+      isLink: /^https?:\/\//i.test(trimmed),
+      inputLength: trimmed.length,
+      valid: Boolean(clean),
+      maskedCode: clean ? maskBindingCode(clean) : '',
+    })
+  }
+  if (!clean) {
+    showToast('绑定码或二维码链接格式错误，请重新确认', 'error')
     return
   }
   uni.navigateTo({ url: `/pages/add/confirm?code=${encodeURIComponent(clean)}` })
@@ -35,10 +39,13 @@ function processAndSubmitCode(raw: string) {
 /** 手动输入 4 位分组格式化 */
 function onManualInput(e: any) {
   const raw = String(e.detail.value || '')
-    .replace(/[^A-Za-z0-9]/g, '')
-    .toUpperCase()
-    .slice(0, 20)
-  manualCode.value = (raw.match(/.{1,4}/g) || []).join('-')
+  if (/^[a-z0-9-]*$/i.test(raw)) {
+    const code = raw.replace(/-/g, '').toUpperCase()
+    manualCode.value = (code.match(/.{1,4}/g) || []).join('-')
+  } else {
+    manualCode.value = raw
+  }
+  return manualCode.value
 }
 
 function startScan() {
@@ -46,10 +53,21 @@ function startScan() {
   showToast('H5 端暂不支持摄像头扫码，请使用手动输码', 'info')
   // #endif
   // #ifndef H5
+  if (import.meta.env.DEV) console.info('[扫码绑定] 开始扫码')
   uni.scanCode({
     scanType: ['qrCode'],
-    success: (res) => processAndSubmitCode(res.result),
-    fail: () => showToast('已取消扫码', 'info'),
+    success: (res) => {
+      if (import.meta.env.DEV) console.info('[扫码绑定] 扫码成功', { scanType: res.scanType })
+      processAndSubmitCode(res.result)
+    },
+    fail: (error) => {
+      if (import.meta.env.DEV) console.warn('[扫码绑定] 扫码未完成', error.errMsg)
+      if (/cancel/i.test(error.errMsg || '')) {
+        showToast('已取消扫码', 'info')
+      } else {
+        showToast(error.errMsg || '扫码失败，请重试', 'error')
+      }
+    },
   })
   // #endif
 }
@@ -85,7 +103,7 @@ function startScan() {
           <view class="viewfinder__content">
             <ZIcon name="qrcode" :size="120" color="#64748b" :stroke-width="2.4" />
             <text class="viewfinder__tip">将取景框对准设备机身或包装上的二维码</text>
-            <text class="viewfinder__sub">自动识别 ziot.asia 专属安全绑定码</text>
+            <text class="viewfinder__sub">自动识别 ZIOT 设备绑定码</text>
           </view>
 
         </view>
@@ -99,14 +117,14 @@ function startScan() {
 
       <!-- 手动输码模式 -->
       <view v-else class="zi-card add__manual">
-        <text class="add__manual-label">20位绑定码 (区分大小写，自动大写与分组)</text>
+        <text class="add__manual-label">设备绑定码或二维码链接</text>
         <input
           :value="manualCode"
           @input="onManualInput"
-          placeholder="例如：BD7K-9X2M-4PLQ-8HZW"
+          placeholder="粘贴绑定码或完整二维码链接"
           placeholder-class="add__manual-placeholder"
           class="add__manual-input"
-          :maxlength="24"
+          :maxlength="512"
         />
         <text class="add__manual-hint">支持直接粘贴标准绑定码或带有 URL 链接的内容</text>
         <button class="zi-btn-primary add__manual-btn" @tap="processAndSubmitCode(manualCode)">
@@ -123,7 +141,7 @@ function startScan() {
         </view>
         <view class="add__notice-steps">
           <text>1. 找到设备机身铭牌或包装盒印刷的 ZIOT 专属二维码；</text>
-          <text>2. 通过扫码或输入 20 位绑定码完成身份验证与配对；</text>
+          <text>2. 通过扫码、输入绑定码或粘贴二维码链接完成绑定；</text>
           <text>3. 家庭其他成员也可通过扫描同一张码共同控制此设备，一码多绑。</text>
         </view>
       </view>

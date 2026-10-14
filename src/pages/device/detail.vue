@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { onLoad, onShow, onHide , onReady } from '@dcloudio/uni-app'
+import { onLoad, onShow, onHide, onUnload } from '@dcloudio/uni-app'
 import { getDevice, getDeviceShadow, sendCommandSync } from '@/api/device'
+import { getTokens } from '@/api/session'
 import { deviceDisplayName } from '@/utils/device-meta'
 import type { Device, ControlItem } from '@/types'
 import { getPanel, COMMON_CONTROLS, REFRESH_SHADOW_SERVICE } from '@/data/product-panels'
@@ -18,6 +19,8 @@ const device = ref<Device | null>(null)
 const loadingIds = ref<Record<string, boolean>>({})
 
 const confirmItem = ref<ControlItem | null>(null)
+let pageVisible = false
+let pollTimer: ReturnType<typeof setInterval> | null = null
 
 const panel = computed(() => getPanel(device.value?.product_key || device.value?.product_id || ''))
 /** 产品面板指令 + 通用默认指令（开关机、查询） */
@@ -35,33 +38,49 @@ function goSettings() {
 }
 
 async function refresh() {
-  if (!deviceId.value) return
+  if (!pageVisible || !deviceId.value || !getTokens()) return
   const current = await getDevice(deviceId.value)
-  if (current) {
+  if (current && pageVisible && getTokens()) {
     const shadow = await getDeviceShadow(deviceId.value)
-    device.value = { ...current, shadow_reported: shadow.reported, shadow_updated_at: shadow.updated_at }
+    if (pageVisible && getTokens()) {
+      device.value = { ...current, shadow_reported: shadow.reported, shadow_updated_at: shadow.updated_at }
+    }
   }
+}
+
+async function refreshInBackground(showError = false) {
+  try {
+    await refresh()
+  } catch (error) {
+    const message = (error as Error)?.message || '加载设备详情失败'
+    if (import.meta.env.DEV) console.warn('[设备详情] 加载失败', message)
+    if (showError && pageVisible && getTokens()) showToast(message, 'error')
+  }
+}
+
+function stopPolling() {
+  pageVisible = false
+  if (pollTimer) clearInterval(pollTimer)
+  pollTimer = null
 }
 
 onLoad((options) => {
   deviceId.value = options?.id || ''
 })
 onShow(() => {
+  stopPolling()
   if (!requireAuth()) return
-  refresh()
+  pageVisible = true
+  void refreshInBackground(true)
+  pollTimer = setInterval(() => { void refreshInBackground() }, 4000)
 })
+onHide(stopPolling)
+onUnload(stopPolling)
 
 // SSE 增量 + 轮询兜底 4s
 const { sseConnected, onEvent } = useDeviceEvents(deviceId.value)
 onEvent((e) => {
-  if (e.type === 'device.shadow.updated' || e.type === 'device.status.changed') refresh()
-})
-let pollTimer: ReturnType<typeof setInterval> | null = null
-onShow(() => {
-  pollTimer = setInterval(refresh, 4000)
-})
-onHide(() => {
-  if (pollTimer) clearInterval(pollTimer)
+  if (e.type === 'device.shadow.updated' || e.type === 'device.status.changed') void refreshInBackground()
 })
 
 /** 控制三步曲：loading → commands:sync(几十ms) → SSE/shadow 回读确认 */
@@ -78,7 +97,7 @@ async function handleControl(control: ControlItem, newValue: any) {
     }
     setTimeout(() => {
       loadingIds.value = { ...loadingIds.value, [control.id]: false }
-      refresh()
+      void refreshInBackground()
     }, 750)
   } catch (err) {
     loadingIds.value = { ...loadingIds.value, [control.id]: false }
